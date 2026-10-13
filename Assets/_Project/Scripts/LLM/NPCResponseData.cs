@@ -3,11 +3,8 @@ using System;
 [Serializable]
 public class NPCResponseData
 {
-    public string dialogue;
-
+    public string dialogue_response;
+    public string mood;
     public bool door_locked;
-
     public bool call_police;
-
-    public string emotional_state;
 }
