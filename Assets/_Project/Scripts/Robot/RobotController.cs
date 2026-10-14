@@ -4,64 +4,72 @@ using UnityEngine.AI;
 [RequireComponent(typeof(NavMeshAgent))]
 public class RobotController : MonoBehaviour
 {
-    // Robotun bulunabilece�i durumlar (State Machine)
     public enum RobotState { Idle, MoveTo, Scan, Interact }
-
+    
     [Header("Durum Bilgisi")]
     public RobotState currentState = RobotState.Idle;
+
+    [Header("Sensör Ayarları")]
+    public float sensorRange = 5.0f; // Raycast'in menzili
+    public Transform sensorPoint; // Işının çıkacağı nokta (Robotun göz hizası)
 
     private NavMeshAgent agent;
 
     void Start()
-    {
-        agent = GetComponent<NavMeshAgent>();
-    }
+{
+    agent = GetComponent<NavMeshAgent>();
+    Debug.Log("ROBOT SCRİPTİ BAŞARIYLA BAŞLADI!"); // Sistemi zorla konuşturuyoruz
+}
 
     void Update()
     {
-        // �lk hafta testi: Farenin sol t�k� ile robota hedef ver (Ad�m 6.3)
-        if (Input.GetMouseButtonDown(0))
-        {
-            SetTargetFromMouseClick();
-        }
-
-        // Durum Makinesi Y�netimi
         switch (currentState)
         {
             case RobotState.Idle:
-                // Robot bekliyor
                 break;
 
             case RobotState.MoveTo:
-                // Robot hedefe ula�t� m� kontrol et
-                if (!agent.pathPending && agent.remainingDistance <= agent.stoppingDistance)
+                // Eğer yol hesaplaması bittiyse ve hedefe yarım metre (0.5f) yaklaştıysak
+                if (!agent.pathPending && agent.remainingDistance <= 0.5f)
                 {
-                    if (!agent.hasPath || agent.velocity.sqrMagnitude == 0f)
-                    {
-                        currentState = RobotState.Idle;
-                    }
+                    agent.isStopped = true; // Robotun fiziksel titremesini/kaymasını zorla durdur
+                    currentState = RobotState.Scan; // Taramaya geç
                 }
                 break;
-
+                
             case RobotState.Scan:
-                // �leride Raycast ile etraf� tarama kodlar� buraya gelecek
+                PerformRaycastScan();
                 break;
-
+                
             case RobotState.Interact:
-                // �leride lazer �alterini indirme animasyonu/kodu buraya gelecek
+                // Şalteri indirme mantığı buraya gelecek
                 break;
         }
     }
 
-    private void SetTargetFromMouseClick()
+    private void PerformRaycastScan()
     {
-        Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
         RaycastHit hit;
+        Vector3 forwardDirection = transform.TransformDirection(Vector3.forward);
+        Vector3 origin = sensorPoint != null ? sensorPoint.position : transform.position;
 
-        if (Physics.Raycast(ray, out hit))
+        // Çizgiyi 5 saniye boyunca ekranda tut (görebilmen için)
+        Debug.DrawRay(origin, forwardDirection * sensorRange, Color.red, 5f);
+
+        if (Physics.Raycast(origin, forwardDirection, out hit, sensorRange))
         {
-            agent.SetDestination(hit.point);
-            currentState = RobotState.MoveTo;
+            // Işın neye çarparsa çarpsın ismini konsola yazdır
+            Debug.Log("Işın şuna çarptı: " + hit.collider.name); 
+
+            if (hit.collider.CompareTag("Salter"))
+            {
+                Debug.Log("Şalter Başarıyla Algılandı!");
+                currentState = RobotState.Interact;
+            }
+        }
+        else
+        {
+            Debug.Log("Işın boşluğa gidiyor, hiçbir şeye çarpmadı.");
         }
     }
 }
