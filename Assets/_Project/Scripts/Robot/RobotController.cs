@@ -4,6 +4,8 @@ using UnityEngine.AI;
 [RequireComponent(typeof(NavMeshAgent))]
 public class RobotController : MonoBehaviour
 {
+    [Header("Etkileşim Ayarları")]
+    public GameObject lazerBariyeri;
     public enum RobotState { Idle, MoveTo, Scan, Interact }
     
     [Header("Durum Bilgisi")]
@@ -42,7 +44,15 @@ public class RobotController : MonoBehaviour
                 break;
                 
             case RobotState.Interact:
-                // Şalteri indirme mantığı buraya gelecek
+                // Şalteri gördüğünde bu kod çalışacak
+                if (lazerBariyeri != null) 
+                {
+                    lazerBariyeri.SetActive(false); // SetActive(false) komutu objeyi sahnede görünmez ve etkisiz yapar
+                    Debug.Log("Lazerler kapatıldı, yol açıldı!");
+                    
+                    // Görev bittikten sonra robotu tekrar bekleme moduna alalım ki sürekli kodu çalıştırmasın
+                    currentState = RobotState.Idle; 
+                }
                 break;
         }
     }
