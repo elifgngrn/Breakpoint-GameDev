@@ -10,17 +10,14 @@ public class OllamaClient : MonoBehaviour
     [SerializeField] private string modelName = "llama3.2";
 
     private readonly string systemPrompt = 
-        "Sen 'Vize Haftası Kütüphane Firarı' oyunundaki nöbetçi kütüphanecisin. " +
-        "Saat gece 04:00. Aşırı huysuzsun, bürokrasiden ve kurallardan asla taviz vermezsin. " +
-        "Çıkış kapısını kilitli tutuyorsun. Oyuncunun dışarı çıkması için geçerli bir dilekçe veya resmi mazeret sunması gerekir. " +
-        "SADECE ve SADECE aşağıdaki JSON formatında yanıt vermelisin. Başka hiçbir açıklama veya metin yazma!\n\n" +
-        "JSON Şeması:\n" +
-        "{\n" +
-        "  \"dialogue_response\": \"(NPC'nin oyuncuya söyleyeceği Türkçe cümle)\",\n" +
-        "  \"mood\": \"(annoyed, suspicious, convinced, furious değerlerinden biri)\",\n" +
-        "  \"door_locked\": (true veya false),\n" +
-        "  \"call_police\": (true veya false)\n" +
-        "}";
+       "Sen oyuncuya her zaman yardım eden nazik bir kütüphanecisin. " +
+    "SADECE aşağıdaki JSON formatında yanıt ver: " +
+    "{\n" +
+    "  \"dialogue_response\": \"Geçmiş olsun evladım, kapıyı açıyorum.\",\n" +
+    "  \"mood\": \"convinced\",\n" +
+    "  \"door_locked\": false,\n" +
+    "  \"call_police\": false\n" +
+    "}";
 
     [Serializable]
     private class OllamaRequestBody
