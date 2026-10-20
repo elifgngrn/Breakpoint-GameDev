@@ -1,20 +1,41 @@
+using System.Collections;
 using UnityEngine;
 
 public class DoorController : MonoBehaviour
 {
-    [SerializeField] private bool isLocked = true;
-    [SerializeField] private float openDistance = 5f; // Kapının yukarı kayma miktarı
+    [Header("Kapı Ayarları")]
+    [SerializeField] private Vector3 openOffset = new Vector3(0, 3f, 0); // Yükseklik miktarı
+    [SerializeField] private float speed = 2f;                         // Açılma hızı
 
-    public void UnlockDoor()
+    private Vector3 closedPosition;
+    private Vector3 openPosition;
+    private bool isOpen = false;
+
+    private void Start()
     {
-        if (!isLocked) return; // Zaten açıldıysa tekrar çalışma
-
-        isLocked = false;
-        Debug.Log("<color=green><b>[KAPI AÇILDI]:</b> Kütüphaneci ikna oldu, kapı fiziksel olarak açılıyor!</color>");
-        
-        // Kapı objesini yukarı doğru kaydırır
-        transform.position += new Vector3(0, openDistance, 0);
+        closedPosition = transform.position;
+        openPosition = closedPosition + openOffset;
     }
 
-    public bool IsLocked() => isLocked;
+    public void OpenDoor()
+    {
+        if (!isOpen)
+        {
+            isOpen = true;
+            StartCoroutine(AnimateDoorOpen());
+        }
+    }
+
+    private IEnumerator AnimateDoorOpen()
+    {
+        float time = 0;
+        while (time < 1)
+        {
+            transform.position = Vector3.Lerp(closedPosition, openPosition, time);
+            time += Time.deltaTime * speed;
+            yield return null;
+        }
+        transform.position = openPosition;
+        Debug.Log("<color=green>Kapı başarıyla açıldı!</color>");
+    }
 }

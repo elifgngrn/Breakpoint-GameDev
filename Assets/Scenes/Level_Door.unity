@@ -858,7 +858,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0780b76bca92d1e41bed557928170a6d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DoorController
-  isLocked: 1
+  openOffset: {x: 0, y: 3, z: 0}
+  speed: 2
 --- !u!65 &964758974
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -1848,7 +1849,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0780b76bca92d1e41bed557928170a6d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DoorController
-  isLocked: 1
+  openOffset: {x: 0, y: 3, z: 0}
+  speed: 2
 --- !u!1 &1872990623
 GameObject:
   m_ObjectHideFlags: 0
@@ -1932,6 +1934,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::OllamaClient
   ollamaUrl: http://localhost:11434/api/generate
   modelName: llama3.2
+  playerInputField: {fileID: 707793667}
+  npcAnswerText: {fileID: 2081789486}
+  sendButton: {fileID: 1063211301}
+  dialoguePanel: {fileID: 1869304825}
+  doorController: {fileID: 964758973}
 --- !u!4 &1993002134
 Transform:
   m_ObjectHideFlags: 0

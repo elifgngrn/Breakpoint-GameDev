@@ -51,7 +51,10 @@ public class DialogueUI : MonoBehaviour
         {
             if (!response.door_locked && doorController != null)
 {
-    doorController.UnlockDoor();
+if (!response.door_locked && doorController != null)
+{
+    doorController.OpenDoor(); // UnlockDoor yerine OpenDoor yazıyoruz!
+}
 }
             npcDialogueText.text = response.dialogue_response;
             playerInputField.text = ""; 

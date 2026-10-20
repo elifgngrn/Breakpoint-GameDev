@@ -3,21 +3,39 @@ using System.Text;
 using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.Networking;
+using UnityEngine.UI;
+using TMPro;
 
 public class OllamaClient : MonoBehaviour
 {
+    [Header("API Ayarları")]
     [SerializeField] private string ollamaUrl = "http://localhost:11434/api/generate";
     [SerializeField] private string modelName = "llama3.2";
 
+    [Header("UI Elemanları")]
+    [SerializeField] private TMP_InputField playerInputField; 
+    [SerializeField] private TMP_Text npcAnswerText;          
+    [SerializeField] private Button sendButton;               
+
+    [Header("Kapı ve Panel Referansları")]
+    [SerializeField] private GameObject dialoguePanel;        
+    [SerializeField] private DoorController doorController;  // Kırmızı çizgi verip vermediğini kontrol edin!
+    // Bürokratik Kütüphaneci NPC System Prompt'u
     private readonly string systemPrompt = 
-       "Sen oyuncuya her zaman yardım eden nazik bir kütüphanecisin. " +
-    "SADECE aşağıdaki JSON formatında yanıt ver: " +
-    "{\n" +
-    "  \"dialogue_response\": \"Geçmiş olsun evladım, kapıyı açıyorum.\",\n" +
-    "  \"mood\": \"convinced\",\n" +
-    "  \"door_locked\": false,\n" +
-    "  \"call_police\": false\n" +
-    "}";
+        "Sen Kütüphane Çıkış Kapısını koruyan, kurallara takıntılı ve bürokrasiden asla taviz vermeyen sert bir Nöbetçi Kütüphanecisin. " +
+        "Saat gece 04:00 ve kapı KİLİTLİDİR. " +
+        "GÖREVİN: Oyuncudan resmi, geçerli ve mantıklı bir dilekçe veya mazeret istemektir. " +
+        "KURALLAR:\n" +
+        "1. Eğer oyuncu geçerli/resmi bir dilekçe veya ikna edici mazeret vermediyse: kapıyı açma ('door_locked': true), 'mood' değerini 'strict' veya 'annoyed' yap.\n" +
+        "2. Eğer oyuncu seni GERÇEKTEN ikna eden resmi bir dilekçe veya çok mantıklı bir mazeret sunduysa: kapıyı aç ('door_locked': false) ve 'mood' değerini 'convinced' yap.\n" +
+        "3. Eğer oyuncu sana hakaret eder, tehdit eder veya saçmalarsa: polisi çağır ('call_police': true).\n\n" +
+        "ÇIKTI KURALI: Yanıtını SADECE aşağıdaki JSON formatında ver, başka hiçbir açıklama yazma:\n" +
+        "{\n" +
+        "  \"dialogue_response\": \"Oyuncuya vereceğin diyalog cevabı\",\n" +
+        "  \"mood\": \"strict/annoyed/convinced/angry\",\n" +
+        "  \"door_locked\": true,\n" +
+        "  \"call_police\": false\n" +
+        "}";
 
     [Serializable]
     private class OllamaRequestBody
@@ -34,28 +52,69 @@ public class OllamaClient : MonoBehaviour
         public string response;
     }
 
-    private async void Start()
+    private void Start()
     {
-        Debug.Log("Nöbetçi Kütüphaneci ile diyalog başlatılıyor...");
-
-        string playerMessage = "İyi geceler memur bey, vize sınavım yarın sabah 8'de. Lütfen kapıyı açın, eve gidip uyumam lazım!";
-
-        NPCResponseData npcAnswer = await SendDialogueToNPC(playerMessage);
-
-        if (npcAnswer != null)
+        if (sendButton != null)
         {
-            Debug.Log($"<color=cyan><b>[Kütüphaneci Yanıtı]:</b> {npcAnswer.dialogue_response}</color>");
-            Debug.Log($"<color=yellow><b>[Ruh Hali]:</b> {npcAnswer.mood} | <b>[Kapı Kilitli mi?]:</b> {npcAnswer.door_locked} | <b>[Polis Çağrıldı mı?]:</b> {npcAnswer.call_police}</color>");
+            sendButton.onClick.AddListener(OnSendButtonClicked);
         }
         else
         {
-            Debug.LogError("<color=red>Kütüphaneciden geçerli bir JSON yanıtı alınamadı!</color>");
+            Debug.LogError("SendButton Inspector'da atanmamış!");
         }
+    }
+
+    public async void OnSendButtonClicked()
+    {
+        string userText = playerInputField.text;
+
+        if (string.IsNullOrWhiteSpace(userText))
+        {
+            Debug.LogWarning("Dilekçe alanı boş olamaz!");
+            return;
+        }
+
+        if (npcAnswerText != null) npcAnswerText.text = "Kütüphaneci dilekçenizi inceliyor...";
+        sendButton.interactable = false;
+
+        NPCResponseData response = await SendDialogueToNPC(userText);
+
+        if (response != null)
+        {
+            if (npcAnswerText != null) npcAnswerText.text = $"\"{response.dialogue_response}\"";
+
+            Debug.Log($"<color=cyan><b>[Kütüphaneci Yanıtı]:</b> {response.dialogue_response}</color>");
+            Debug.Log($"<color=yellow><b>[Ruh Hali]:</b> {response.mood} | <b>[Kapı Kilitli mi?]:</b> {response.door_locked} | <b>[Polis Çağrıldı mı?]:</b> {response.call_police}</color>");
+
+            // Kapı Açıldıysa Panel Kapansın ve Kapı Hareket Etse
+            if (!response.door_locked)
+            {
+                Debug.Log("<color=green><b>TEBRİKLER! KAPININ KİLİDİ AÇILDI!</b></color>");
+                
+                // 1. Diyalog Panelini Gizle
+                if (dialoguePanel != null)
+                {
+                    dialoguePanel.SetActive(false);
+                }
+
+                // 2. Kapı Animasyonunu Çalıştır
+                if (doorController != null)
+                {
+                    doorController.OpenDoor();
+                }
+            }
+        }
+        else
+        {
+            if (npcAnswerText != null) npcAnswerText.text = "Kütüphaneci cevap vermedi. (Sunucu Hatası)";
+        }
+
+        sendButton.interactable = true;
     }
 
     public async Task<NPCResponseData> SendDialogueToNPC(string playerInput)
     {
-        string fullPrompt = $"{systemPrompt}\n\nOyuncunun Söylediği: \"{playerInput}\"";
+        string fullPrompt = $"{systemPrompt}\n\nOyuncunun Yazdığı Dilekçe/Mesaj: \"{playerInput}\"";
 
         OllamaRequestBody requestData = new OllamaRequestBody
         {
@@ -73,6 +132,7 @@ public class OllamaClient : MonoBehaviour
             request.uploadHandler = new UploadHandlerRaw(bodyRaw);
             request.downloadHandler = new DownloadHandlerBuffer();
             request.SetRequestHeader("Content-Type", "application/json");
+            request.timeout = 15; // Hata yönetimi için zaman aşımı
 
             try
             {
