@@ -4,18 +4,29 @@ namespace Core
 {
     public static class GameEvents
     {
-        // Diyalog Olayları (DiyalogUI açılıp kapanınca)
-        public static event Action OnDialogueStarted;
-        public static void RaiseDialogueStarted() => OnDialogueStarted?.Invoke();
+        // Zaman (GameClock) Olayları
+        public static event Action TimeExpired;
+        public static void RaiseTimeExpired() => TimeExpired?.Invoke();
 
-        public static event Action OnDialogueEnded;
-        public static void RaiseDialogueEnded() => OnDialogueEnded?.Invoke();
+        // Lazer ve Koridor Olayları
+        public static event Action LasersDisabled;
+        public static void RaiseLasersDisabled() => LasersDisabled?.Invoke();
+
+        public static event Action CorridorExitReached;
+        public static void RaiseCorridorExitReached() => CorridorExitReached?.Invoke();
+
+        // Diyalog Olayları
+        public static event Action DialogueStarted;
+        public static void RaiseDialogueStarted() => DialogueStarted?.Invoke();
+
+        public static event Action DialogueEnded;
+        public static void RaiseDialogueEnded() => DialogueEnded?.Invoke();
 
         // Kapı ve Kaçış Olayları
-        public static event Action OnDoorUnlocked;
-        public static void RaiseDoorUnlocked() => OnDoorUnlocked?.Invoke();
+        public static event Action DoorUnlocked;
+        public static void RaiseDoorUnlocked() => DoorUnlocked?.Invoke();
 
-        public static event Action OnEscapeCompleted;
-        public static void RaiseEscapeCompleted() => OnEscapeCompleted?.Invoke();
+        public static event Action EscapeCompleted;
+        public static void RaiseEscapeCompleted() => EscapeCompleted?.Invoke();
     }
 }
