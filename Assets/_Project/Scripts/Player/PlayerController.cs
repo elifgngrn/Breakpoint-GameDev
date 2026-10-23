@@ -1,7 +1,8 @@
 using UnityEngine;
 using UnityEngine.AI;
+using Breakpoint.Core;
 
-[RequireComponent(typeof(CharacterController))] // Bu satır Unity'ye "Bu karaktere fiziksel bir beden ekle" der
+[RequireComponent(typeof(CharacterController))]
 public class PlayerController : MonoBehaviour
 {
     [Header("Hareket Ayarları")]
@@ -22,16 +23,37 @@ public class PlayerController : MonoBehaviour
     [Header("Robot Komut Sistemi")]
     public NavMeshAgent robot;
     public float komutMenzili = 50f;
+    private bool isDialogueActive = false;
+
+    // Bu fonksiyonu PlayerController sınıfının içine ekle:
+    public void SetDialogueActive(bool active)
+    {
+        isDialogueActive = active;
+        if (active)
+        {
+            Cursor.lockState = CursorLockMode.None;
+            Cursor.visible = true;
+        }
+        else
+        {
+            Cursor.lockState = CursorLockMode.Locked;
+            Cursor.visible = false;
+        }
+    }
 
     void Start()
     {
         controller = GetComponent<CharacterController>();
-        Cursor.lockState = CursorLockMode.Locked; // İmleci gizle
+        // Cursor.lockState ve Cursor.visible satırları SİLİNDİ, imleci artık GameManager yönetiyor
     }
 
     void Update()
     {
+        // Diyalog aktifken oyuncu hareketini ve kamerayı tamamen dondur
+        if (isDialogueActive) return;
+
         if (GameManager.Instance != null && GameManager.Instance.State != GameState.Playing) return;
+
         // 1. KAMERA DÖNDÜRME (Mouse Look)
         float fareX = Input.GetAxis("Mouse X") * fareHassasiyeti;
         float fareY = Input.GetAxis("Mouse Y") * fareHassasiyeti;
