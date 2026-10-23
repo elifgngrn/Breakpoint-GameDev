@@ -31,6 +31,7 @@ public class PlayerController : MonoBehaviour
 
     void Update()
     {
+        if (GameManager.Instance != null && GameManager.Instance.State != GameState.Playing) return;
         // 1. KAMERA DÖNDÜRME (Mouse Look)
         float fareX = Input.GetAxis("Mouse X") * fareHassasiyeti;
         float fareY = Input.GetAxis("Mouse Y") * fareHassasiyeti;

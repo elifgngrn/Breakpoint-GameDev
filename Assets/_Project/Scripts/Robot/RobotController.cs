@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.AI;
+using Core;
 
 [RequireComponent(typeof(NavMeshAgent))]
 public class RobotController : MonoBehaviour
@@ -48,6 +49,7 @@ public class RobotController : MonoBehaviour
                 if (lazerBariyeri != null) 
                 {
                     lazerBariyeri.SetActive(false); // SetActive(false) komutu objeyi sahnede görünmez ve etkisiz yapar
+                    GameEvents.RaiseLasersDisabled();
                     Debug.Log("Lazerler kapatıldı, yol açıldı!");
                     
                     // Görev bittikten sonra robotu tekrar bekleme moduna alalım ki sürekli kodu çalıştırmasın
