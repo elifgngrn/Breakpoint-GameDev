@@ -1,80 +1,28 @@
-using System;
-using System.Text;
-using System.Threading.Tasks;
 using UnityEngine;
-using UnityEngine.Networking;
+using TMPro;
+using Core;
 
-namespace LLM
+public class DialogueUI : MonoBehaviour
 {
-    public class OllamaClient : MonoBehaviour
+    [Header("Arayüz Bağlantıları")]
+    public GameObject dialoguePanel;
+    public TMP_Text npcAnswerText;
+    
+    // Bu fonksiyon robot kapıya ulaşıp diyaloğu tetiklediğinde çalışacak
+    public void DiyaloguBaslat()
     {
-        [SerializeField] private string ollamaUrl = "http://localhost:11434/api/generate";
-        [SerializeField] private string modelName = "llama3.2";
+        if (dialoguePanel != null) dialoguePanel.SetActive(true);
+        
+        GameEvents.RaiseDialogueStarted(); // Oyuncunun kamerasını ve hareketini dondurur
+        Debug.Log("Diyalog paneli açıldı, oyuncu donduruldu.");
+    }
 
-        public async Task<NPCResponseData> SendDialogueToNPC(string userMessage)
-        {
-            string systemPrompt = "Sen Kocaeli Üniversitesi kütüphanesinde gece 04:00 nöbetinde olan, bürokrasiden ve kurallardan asla taviz vermeyen aksi bir güvenlik görevlisisin. Oyuncu vize haftasında kütüphaneden kaçmak istiyor. Geçerli bir mazeret veya imzalı dilekçe sunulmadığı sürece kapıyı açma. YANITINI SADECE AŞAĞIDAKİ JSON FORMATINDA VER:\\n{\\\"dialogue\\\": \\\"yanıtın\\\", \\\"door_locked\\\": true/false, \\\"call_police\\\": true/false}";
-
-            string jsonRequestBody = $"{{\"model\": \"{modelName}\", \"prompt\": \"{userMessage}\", \"system\": \"{systemPrompt}\", \"stream\": false}}";
-            byte[] bodyRaw = Encoding.UTF8.GetBytes(jsonRequestBody);
-
-            using (UnityWebRequest request = new UnityWebRequest(ollamaUrl, "POST"))
-            {
-                request.uploadHandler = new UploadHandlerRaw(bodyRaw);
-                request.downloadHandler = new DownloadHandlerBuffer();
-                request.SetRequestHeader("Content-Type", "application/json");
-                request.timeout = 8; // 8 Saniye Timeout Koruması (Ders İsteri 4.3)
-
-                try
-                {
-                    var operation = request.SendWebRequest();
-                    while (!operation.isDone) await Task.Yield();
-
-                    if (request.result == UnityWebRequest.Result.Success)
-                    {
-                        string rawResponse = request.downloadHandler.text;
-                        return ParseOllamaResponse(rawResponse);
-                    }
-                    else
-                    {
-                        Debug.LogWarning("Ollama Bağlantı Hatası: " + request.error);
-                        return GetFallbackResponse("Nöbetçi kütüphaneci şu an uyuyor (Sunucuya ulaşılamadı).");
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Debug.LogError("Ollama İstisnası: " + ex.Message);
-                    return GetFallbackResponse("Bir sistem hatası oluştu.");
-                }
-            }
-        }
-
-        private NPCResponseData ParseOllamaResponse(string jsonRaw)
-        {
-            try
-            {
-                NPCResponseData data = JsonUtility.FromJson<NPCResponseData>(jsonRaw);
-                if (data != null && !string.IsNullOrEmpty(data.dialogue))
-                {
-                    return data;
-                }
-                return GetFallbackResponse("Kütüphaneci mırıldandı ama ne dediği anlaşılmadı.");
-            }
-            catch (Exception)
-            {
-                // Bozuk JSON Koruması (Ders İsteri 4.2)
-                return GetFallbackResponse("Düzgün bir dilekçe yazmadın evladım, anlayamadım!");
-            }
-        }
-
-        private NPCResponseData GetFallbackResponse(string defaultDialogue)
-        {
-            return new NPCResponseData
-            {
-                dialogue = defaultDialogue,
-                door_locked = true,
-                call_police = false
-            };
-        }
+    // Bu fonksiyon diyalog bittiğinde çalışacak
+    public void DiyaloguBitir()
+    {
+        if (dialoguePanel != null) dialoguePanel.SetActive(false);
+        
+        GameEvents.RaiseDialogueEnded(); // Oyuncuyu tekrar serbest bırakır
+        Debug.Log("Diyalog paneli kapandı, oyuncu serbest.");
     }
 }
