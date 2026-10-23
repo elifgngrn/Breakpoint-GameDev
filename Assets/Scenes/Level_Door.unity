@@ -699,8 +699,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: "\"Dilek\xE7enizi veya mazeretinizi buraya yaz\u0131n...\"\u200B"
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
-  m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 2c3a51f97a0eea844a24d2a29b52b5c9, type: 2}
+  m_sharedMaterial: {fileID: -6091221113533147928, guid: 2c3a51f97a0eea844a24d2a29b52b5c9, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -838,7 +838,6 @@ GameObject:
   - component: {fileID: 964758976}
   - component: {fileID: 964758975}
   - component: {fileID: 964758974}
-  - component: {fileID: 964758973}
   m_Layer: 0
   m_Name: ExitDoor
   m_TagString: Untagged
@@ -846,18 +845,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &964758973
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 964758972}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 0780b76bca92d1e41bed557928170a6d, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::DoorController
 --- !u!65 &964758974
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -963,7 +950,6 @@ GameObject:
   - component: {fileID: 1056705563}
   - component: {fileID: 1056705562}
   - component: {fileID: 1056705561}
-  - component: {fileID: 1056705565}
   m_Layer: 5
   m_Name: Canvas
   m_TagString: Untagged
@@ -1054,18 +1040,6 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0, y: 0}
---- !u!114 &1056705565
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1056705560}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 2b4d5366f3483114bb4ecfbe1ba24e48, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::DialogueUI
 --- !u!1 &1063211299
 GameObject:
   m_ObjectHideFlags: 0
@@ -1199,6 +1173,14 @@ PrefabInstance:
       propertyPath: m_Name
       value: GameHUD
       objectReference: {fileID: 0}
+    - target: {fileID: 5392925117500674112, guid: bb97ed9c9e65fad4a968b02eb6f6e6a7, type: 3}
+      propertyPath: m_fontAsset
+      value: 
+      objectReference: {fileID: 11400000, guid: 2c3a51f97a0eea844a24d2a29b52b5c9, type: 2}
+    - target: {fileID: 5392925117500674112, guid: bb97ed9c9e65fad4a968b02eb6f6e6a7, type: 3}
+      propertyPath: m_sharedMaterial
+      value: 
+      objectReference: {fileID: -6091221113533147928, guid: 2c3a51f97a0eea844a24d2a29b52b5c9, type: 2}
     - target: {fileID: 9016880162707374675, guid: bb97ed9c9e65fad4a968b02eb6f6e6a7, type: 3}
       propertyPath: m_Pivot.x
       value: 0
@@ -1279,7 +1261,8 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
-    m_RemovedComponents: []
+    m_RemovedComponents:
+    - {fileID: 4203710265662147731, guid: bb97ed9c9e65fad4a968b02eb6f6e6a7, type: 3}
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
     m_AddedComponents: []
@@ -1470,8 +1453,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: "\"Dilek\xE7eyi sun\""
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
-  m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 2c3a51f97a0eea844a24d2a29b52b5c9, type: 2}
+  m_sharedMaterial: {fileID: -6091221113533147928, guid: 2c3a51f97a0eea844a24d2a29b52b5c9, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -1741,8 +1724,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: Enter text...
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
-  m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 2c3a51f97a0eea844a24d2a29b52b5c9, type: 2}
+  m_sharedMaterial: {fileID: -6091221113533147928, guid: 2c3a51f97a0eea844a24d2a29b52b5c9, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -2075,6 +2058,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::DialogueUI
   dialoguePanel: {fileID: 1869304825}
   npcAnswerText: {fileID: 2081789486}
+  playerInputField: {fileID: 707793667}
+  sendButton: {fileID: 1063211301}
+  ollamaManager: {fileID: 1993002135}
 --- !u!1 &1872990623
 GameObject:
   m_ObjectHideFlags: 0
@@ -2136,7 +2122,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1993002134}
-  - component: {fileID: 1993002133}
+  - component: {fileID: 1993002135}
   m_Layer: 0
   m_Name: OllamaManager
   m_TagString: Untagged
@@ -2144,18 +2130,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &1993002133
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1993002132}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: c9770b5743e851a4ca4e8fac78a6fe23, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::OllamaClient
 --- !u!4 &1993002134
 Transform:
   m_ObjectHideFlags: 0
@@ -2171,6 +2145,20 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1993002135
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1993002132}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8a8887299c8d61b42aebc36c7c5a9631, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::OllamaManager
+  ollamaUrl: http://localhost:11434/api/generate
+  modelName: llama3.2
 --- !u!1 &2081789484
 GameObject:
   m_ObjectHideFlags: 0
@@ -2232,8 +2220,8 @@ MonoBehaviour:
     kilitlidir. D\u0131\u015Far\u0131 \xE7\u0131kmak istiyorsan mazeretini a\xE7\u0131klayan
     resmi dilek\xE7eni sun!\""
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
-  m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 2c3a51f97a0eea844a24d2a29b52b5c9, type: 2}
+  m_sharedMaterial: {fileID: -6091221113533147928, guid: 2c3a51f97a0eea844a24d2a29b52b5c9, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []

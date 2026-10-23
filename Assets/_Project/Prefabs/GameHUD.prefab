@@ -12,7 +12,6 @@ GameObject:
   - component: {fileID: 1567574309253962407}
   - component: {fileID: 645656712780168203}
   - component: {fileID: 1757042753007517146}
-  - component: {fileID: 4203710265662147731}
   m_Layer: 5
   m_Name: GameHUD
   m_TagString: Untagged
@@ -103,19 +102,6 @@ MonoBehaviour:
   m_BlockingMask:
     serializedVersion: 2
     m_Bits: 4294967295
---- !u!114 &4203710265662147731
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3257795027811209946}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 1b33a7fa042f0674291d35a77e3a5a84, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::ClockHUD
-  label: {fileID: 5392925117500674112}
 --- !u!1 &7616720785584350962
 GameObject:
   m_ObjectHideFlags: 0
@@ -183,8 +169,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: New Text
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
-  m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 2c3a51f97a0eea844a24d2a29b52b5c9, type: 2}
+  m_sharedMaterial: {fileID: -6091221113533147928, guid: 2c3a51f97a0eea844a24d2a29b52b5c9, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
