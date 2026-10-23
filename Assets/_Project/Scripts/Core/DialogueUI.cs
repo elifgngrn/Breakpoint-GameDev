@@ -1,7 +1,7 @@
 using UnityEngine;
 using TMPro;
 using Core;
-
+using Breakpoint.Core;
 public class DialogueUI : MonoBehaviour
 {
     [Header("Arayüz Bağlantıları")]
