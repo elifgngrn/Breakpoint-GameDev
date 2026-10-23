@@ -1,4 +1,5 @@
 using UnityEngine;
+using Breakpoint.Core;
 
 /// <summary>Koridor sonuna konan trigger collider. Oyuncu "Player" tag'li olmalı.</summary>
 [RequireComponent(typeof(Collider))]

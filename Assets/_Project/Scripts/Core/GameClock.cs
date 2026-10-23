@@ -1,5 +1,5 @@
 using UnityEngine;
-
+using Breakpoint.Core;
 /// <summary>04:00 → 09:00 oyun içi saati, gerçek süreye (varsayılan 10 dk) eşler.</summary>
 public sealed class GameClock : MonoBehaviour
 {

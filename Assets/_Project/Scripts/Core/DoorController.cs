@@ -1,6 +1,6 @@
 using System.Collections;
 using UnityEngine;
-
+using Breakpoint.Core;
 namespace Core
 {
     public class DoorController : MonoBehaviour
