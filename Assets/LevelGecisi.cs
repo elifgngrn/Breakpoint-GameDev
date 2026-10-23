@@ -1,6 +1,6 @@
 using UnityEngine;
 using Core; // GameEvents'i tanıması için eklendi
-
+using Breakpoint.Core;
 public class LevelGecisi : MonoBehaviour
 {
     private void OnTriggerEnter(Collider other)
