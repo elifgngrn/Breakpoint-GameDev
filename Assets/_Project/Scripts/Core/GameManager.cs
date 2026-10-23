@@ -1,7 +1,7 @@
 using System;
 using UnityEngine;
 using UnityEngine.SceneManagement;
-
+using Breakpoint.Core;
 /// <summary>
 /// Oyun akışı: durumlar, sahne geçişi, zaman sayacı, imleç modu.
 /// Hangi sahneden Play'e basılırsa basılsın otomatik oluşur (test kolaylığı).
