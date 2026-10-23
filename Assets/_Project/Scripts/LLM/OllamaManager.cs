@@ -10,11 +10,36 @@ public class OllamaManager : MonoBehaviour
     [SerializeField] private string ollamaUrl = "http://localhost:11434/api/generate";
     [SerializeField] private string modelName = "llama3.2";
 
+    // JSON serializasyonu için yardımcı veri yapıları
+    [Serializable]
+    private class OllamaPayload
+    {
+        public string model;
+        public string prompt;
+        public string system;
+        public bool stream;
+    }
+
+    [Serializable]
+    private class OllamaRawResponse
+    {
+        public string response;
+    }
+
     public async Task<NPCResponseData> SendPromptToOllama(string userMessage)
     {
-        string systemPrompt = "Sen Kocaeli Üniversitesi kütüphanesinde gece 04:00 nöbetinde olan, bürokrasiden ve kurallardan asla taviz vermeyen aksi bir güvenlik görevlisisin. Oyuncu vize haftasında kütüphaneden kaçmak istiyor. Geçerli bir mazeret veya imzalı dilekçe sunulmadığı sürece kapıyı açma. YANITINI SADECE AŞAĞIDAKİ JSON FORMATINDA VER:\\n{\\\"dialogue\\\": \\\"yanıtın\\\", \\\"door_locked\\\": true/false, \\\"call_police\\\": true/false}";
+        string systemPrompt = "Sen Kocaeli Üniversitesi kütüphanesinde gece 04:00 nöbetinde olan, bürokrasiden ve kurallardan asla taviz vermeyen aksi bir güvenlik görevlisisin. Oyuncu vize haftasında kütüphaneden kaçmak istiyor. Geçerli bir mazeret sunulmadığı sürece kapıyı açma. YANITINI KESİNLİKLE BAŞKA HİÇBİR AÇIKLAMA EKLEMEDEN SADECE VE SADECE BU JSON FORMATINDA VER: {\"dialogue\": \"yanıtın\", \"door_locked\": true, \"call_police\": false}";
 
-        string jsonRequestBody = $"{{\"model\": \"{modelName}\", \"prompt\": \"{userMessage}\", \"system\": \"{systemPrompt}\", \"stream\": false}}";
+        // JSON gövdesini güvenli bir şekilde nesne üzerinden oluşturuyoruz (400 Bad Request hatasını önler)
+        OllamaPayload payload = new OllamaPayload
+        {
+            model = modelName,
+            prompt = userMessage,
+            system = systemPrompt,
+            stream = false
+        };
+
+        string jsonRequestBody = JsonUtility.ToJson(payload);
         byte[] bodyRaw = Encoding.UTF8.GetBytes(jsonRequestBody);
 
         using (UnityWebRequest request = new UnityWebRequest(ollamaUrl, "POST"))
@@ -22,7 +47,7 @@ public class OllamaManager : MonoBehaviour
             request.uploadHandler = new UploadHandlerRaw(bodyRaw);
             request.downloadHandler = new DownloadHandlerBuffer();
             request.SetRequestHeader("Content-Type", "application/json");
-            request.timeout = 8; // 8 saniye Timeout (Zaman aşımı koruması)
+            request.timeout = 30;
 
             try
             {
@@ -52,11 +77,16 @@ public class OllamaManager : MonoBehaviour
     {
         try
         {
-            // Model çıktısını ayrıştırma
-            NPCResponseData data = JsonUtility.FromJson<NPCResponseData>(jsonRaw);
-            if (data != null && !string.IsNullOrEmpty(data.dialogue))
+            // Önce Ollama'nın ana sarmalayıcı (wrapper) JSON'ını çözüyoruz
+            OllamaRawResponse wrapper = JsonUtility.FromJson<OllamaRawResponse>(jsonRaw);
+            if (wrapper != null && !string.IsNullOrEmpty(wrapper.response))
             {
-                return data;
+                // Modelin içeride ürettiği JSON metnini NPCResponseData nesnesine dönüştürüyoruz
+                NPCResponseData data = JsonUtility.FromJson<NPCResponseData>(wrapper.response);
+                if (data != null && !string.IsNullOrEmpty(data.dialogue))
+                {
+                    return data;
+                }
             }
             return GetFallbackResponse("Kütüphaneci mırıldandı ama ne dediği anlaşılmadı.");
         }
