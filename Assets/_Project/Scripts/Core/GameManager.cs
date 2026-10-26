@@ -2,6 +2,7 @@ using System;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using Breakpoint.Core;
+
 /// <summary>
 /// Oyun akışı: durumlar, sahne geçişi, zaman sayacı, imleç modu.
 /// Hangi sahneden Play'e basılırsa basılsın otomatik oluşur (test kolaylığı).
@@ -11,6 +12,7 @@ public sealed class GameManager : MonoBehaviour
 {
     public static GameManager Instance { get; private set; }
 
+    [Header("Sahne Adları")]
     [SerializeField] private string menuScene = "MainMenu";
     [SerializeField] private string corridorScene = "Level_Corrider";
     [SerializeField] private string doorScene = "Level_Door";

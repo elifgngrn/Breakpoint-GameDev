@@ -10,6 +10,23 @@ public class OllamaManager : MonoBehaviour
     [SerializeField] private string ollamaUrl = "http://localhost:11434/api/generate";
     [SerializeField] private string modelName = "llama3.2";
 
+    [Header("LLM Sistem Promptu")]
+    [SerializeField] 
+    [TextArea(6, 12)]
+    private string systemPrompt = @"Sen Kocaeli Üniversitesi Kütüphanesi'nin gece 04:00 nöbetindeki kuralcı ve aksi Nöbetçi Kütüphanecisisin. Görevin çıkış kapısını korumaktır.
+
+Kurallar:
+1. Oyuncu resmi bir dille yazılmış mantıklı bir mazeret dilekçesi sunarsa ikna ol ve kapıyı aç (""door_locked"": false, ""call_police"": false).
+2. Oyuncu saçmalar veya dilekçe vermezse kapıyı açma (""door_locked"": true, ""call_police"": false).
+3. Oyuncu sana hakaret eder veya zorla kaçmaya çalışırsa polisi çağır (""door_locked"": true, ""call_police"": true).
+
+YANITINI KESİNLİKLE BAŞKA HİÇBİR AÇIKLAMA VEYA METİN EKLEMEDEN SADECE VE SADECE AŞAĞIDAKİ JSON FORMATINDA VER:
+{
+  ""dialogue"": ""Kütüphanecinin vereceği yanıt"",
+  ""door_locked"": true,
+  ""call_police"": false
+}";
+
     // JSON serializasyonu için yardımcı veri yapıları
     [Serializable]
     private class OllamaPayload
@@ -28,9 +45,7 @@ public class OllamaManager : MonoBehaviour
 
     public async Task<NPCResponseData> SendPromptToOllama(string userMessage)
     {
-        string systemPrompt = "Sen Kocaeli Üniversitesi kütüphanesinde gece 04:00 nöbetinde olan, bürokrasiden ve kurallardan asla taviz vermeyen aksi bir güvenlik görevlisisin. Oyuncu vize haftasında kütüphaneden kaçmak istiyor. Geçerli bir mazeret sunulmadığı sürece kapıyı açma. YANITINI KESİNLİKLE BAŞKA HİÇBİR AÇIKLAMA EKLEMEDEN SADECE VE SADECE BU JSON FORMATINDA VER: {\"dialogue\": \"yanıtın\", \"door_locked\": true, \"call_police\": false}";
-
-        // JSON gövdesini güvenli bir şekilde nesne üzerinden oluşturuyoruz (400 Bad Request hatasını önler)
+        // JSON gövdesini nesne üzerinden oluşturuyoruz (400 Bad Request hatasını önler)
         OllamaPayload payload = new OllamaPayload
         {
             model = modelName,
@@ -62,7 +77,7 @@ public class OllamaManager : MonoBehaviour
                 else
                 {
                     Debug.LogWarning("Ollama Bağlantı Hatası: " + request.error);
-                    return GetFallbackResponse("Nöbetçi kütüphaneci şu an uyuyor (Ollama sunucusuna ulaşılamadı).");
+                    return GetFallbackResponse("Nöbetçi kütüphaneci şu an uykuda (Ollama sunucusuna ulaşılamadı).");
                 }
             }
             catch (Exception ex)
@@ -77,7 +92,7 @@ public class OllamaManager : MonoBehaviour
     {
         try
         {
-            // Önce Ollama'nın ana sarmalayıcı (wrapper) JSON'ını çözüyoruz
+            // Önce Ollama'nın sarmalayıcı (wrapper) JSON'ını çözüyoruz
             OllamaRawResponse wrapper = JsonUtility.FromJson<OllamaRawResponse>(jsonRaw);
             if (wrapper != null && !string.IsNullOrEmpty(wrapper.response))
             {
