@@ -1,49 +1,126 @@
+using System.Collections;
 using UnityEngine;
+using Breakpoint.Core;
 
-/// <summary>Kazanma/kaybetme panelleri. Butonların OnClick'ine Restart / QuitToMenu bağlanır.</summary>
-public sealed class EndScreenUI : MonoBehaviour
+public class EndScreenUI : MonoBehaviour
 {
     [SerializeField] private GameObject winPanel;
     [SerializeField] private GameObject losePanel;
-
-    private GameManager subscribedManager;
+    [SerializeField] private float fadeDuration = 0.5f; // Geçiş süresi
 
     private void Start()
     {
-        Hide();
-        subscribedManager = GameManager.Instance;
-        if (subscribedManager == null) return;
-        subscribedManager.StateChanged += OnStateChanged;
-        OnStateChanged(subscribedManager.State);
+        HideAllPanels();
+        SubscribeToGameManager();
+
+        // UI, GameManager ilk durum olayını yayınladıktan sonra etkinleşmiş olabilir.
+        if (GameManager.Instance != null)
+            HandleStateChanged(GameManager.Instance.State);
     }
 
-    private void OnDestroy()
+    private void OnEnable()
     {
-        if (subscribedManager != null)
-            subscribedManager.StateChanged -= OnStateChanged;
+        SubscribeToGameManager();
     }
 
-    private void OnStateChanged(GameState state)
+    private void OnDisable()
     {
-        if (winPanel != null) winPanel.SetActive(state == GameState.Won);
-        if (losePanel != null) losePanel.SetActive(state == GameState.Lost);
+        if (GameManager.Instance != null)
+            GameManager.Instance.StateChanged -= HandleStateChanged;
     }
 
-    private void Hide()
-    {
-        if (winPanel != null) winPanel.SetActive(false);
-        if (losePanel != null) losePanel.SetActive(false);
-    }
-
-    public void OnRestartClicked()
+    private void SubscribeToGameManager()
     {
         if (GameManager.Instance == null) return;
-        GameManager.Instance.Restart();
+
+        GameManager.Instance.StateChanged -= HandleStateChanged;
+        GameManager.Instance.StateChanged += HandleStateChanged;
     }
 
-    public void OnMenuClicked()
+    private void HandleStateChanged(GameState state)
     {
-        if (GameManager.Instance == null) return;
-        GameManager.Instance.QuitToMenu();
+        switch (state)
+        {
+            case GameState.Won:
+                ShowWinPanel();
+                break;
+            case GameState.Lost:
+                ShowLosePanel();
+                break;
+        }
+    }
+
+    private void OnGUI()
+    {
+        var gameManager = GameManager.Instance;
+        if (gameManager == null || (gameManager.State != GameState.Won && gameManager.State != GameState.Lost))
+            return;
+
+        const float buttonWidth = 190f;
+        const float buttonHeight = 48f;
+        const float gap = 16f;
+        float left = (Screen.width - buttonWidth * 2f - gap) * 0.5f;
+        float top = Screen.height * 0.72f;
+
+        if (GUI.Button(new Rect(left, top, buttonWidth, buttonHeight), "TEKRAR OYNA"))
+            gameManager.Restart();
+
+        if (GUI.Button(new Rect(left + buttonWidth + gap, top, buttonWidth, buttonHeight), "ANA MENÜ"))
+            gameManager.QuitToMenu();
+    }
+
+    private void HideAllPanels()
+    {
+        if (winPanel != null) { SetPanelAlpha(winPanel, 0f); winPanel.SetActive(false); }
+        if (losePanel != null) { SetPanelAlpha(losePanel, 0f); losePanel.SetActive(false); }
+    }
+
+    public void ShowWinPanel()
+    {
+        if (winPanel != null)
+        {
+            winPanel.SetActive(true);
+            StartCoroutine(FadeInPanel(winPanel));
+        }
+    }
+
+    public void ShowLosePanel()
+    {
+        if (losePanel != null)
+        {
+            losePanel.SetActive(true);
+            StartCoroutine(FadeInPanel(losePanel));
+        }
+    }
+
+    private void SetPanelAlpha(GameObject panel, float alpha)
+    {
+        CanvasGroup canvasGroup = panel.GetComponent<CanvasGroup>();
+        if (canvasGroup == null)
+        {
+            canvasGroup = panel.AddComponent<CanvasGroup>();
+        }
+        canvasGroup.alpha = alpha;
+    }
+
+    private IEnumerator FadeInPanel(GameObject panel)
+    {
+        CanvasGroup canvasGroup = panel.GetComponent<CanvasGroup>();
+        if (canvasGroup == null)
+        {
+            canvasGroup = panel.AddComponent<CanvasGroup>();
+        }
+
+        canvasGroup.alpha = 0f;
+        float elapsedTime = 0f;
+
+        while (elapsedTime < fadeDuration)
+        {
+            elapsedTime += Time.unscaledDeltaTime; // Oyun durdurulsa bile çalışması için
+            canvasGroup.alpha = Mathf.Clamp01(elapsedTime / fadeDuration);
+            yield return null;
+        }
+
+        canvasGroup.alpha = 1f;
     }
 }
