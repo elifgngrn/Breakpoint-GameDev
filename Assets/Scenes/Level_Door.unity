@@ -1460,7 +1460,7 @@ MonoBehaviour:
   npcAnswerText: {fileID: 2081789486}
   playerInputField: {fileID: 707793667}
   sendButton: {fileID: 1063211301}
-  ollamaManager: {fileID: 0}
+  ollamaManager: {fileID: 1993002135}
 --- !u!114 &1056705566
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1475,6 +1475,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::EndScreenUI
   winPanel: {fileID: 790843942}
   losePanel: {fileID: 954799122}
+  fadeDuration: 0.5
 --- !u!1 &1063211299
 GameObject:
   m_ObjectHideFlags: 0

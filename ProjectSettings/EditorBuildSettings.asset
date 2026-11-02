@@ -6,10 +6,13 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
+    path: Assets/Scenes/MainMenu.unity
+    guid: 0ae07923288441d4ae2d2d8c850960e1
+  - enabled: 1
     path: Assets/Scenes/Level_Door.unity
     guid: 99c9720ab356a0642a771bea13969a05
   - enabled: 1
-    path: Assets/Scenes/Level_Corrider.unity
+    path: Assets/Scenes/Level_Corridor.unity
     guid: f57b545a4dac8f446879454568a6e431
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}

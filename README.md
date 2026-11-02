@@ -36,7 +36,7 @@ Projenin amacı; Unity’de sahne ve oyun durumu yönetimini, NavMesh tabanlı o
 
 ## Mimari ve OOP tasarımı
 
-Kod, `Assets/_Project/Scripts` altında sorumluluklarına göre `Core`, `LLM`, `Player` ve `Robot` klasörlerine ayrılmıştır. Sahne dosyaları `Assets/Scenes` altındadır (`Level_Corrider` ve `Level_Door`). Bileşenler Unity `MonoBehaviour` yaşam döngüsüne uyumlu, Inspector üzerinden yapılandırılabilir nesneler olarak tasarlanmıştır.
+Kod, `Assets/_Project/Scripts` altında sorumluluklarına göre `Core`, `LLM`, `Player` ve `Robot` klasörlerine ayrılmıştır. Sahne dosyaları `Assets/Scenes` altındadır (`MainMenu`, `Level_Corridor` ve `Level_Door`). Bileşenler Unity `MonoBehaviour` yaşam döngüsüne uyumlu, Inspector üzerinden yapılandırılabilir nesneler olarak tasarlanmıştır.
 
 ### Temel sınıflar
 
@@ -67,6 +67,8 @@ Bu ilkeler, mevcut kodun gözlemlenebilir yapısına göre açıklanmıştır; h
 
 Robot `NavMeshAgent` ile pişirilen NavMesh yüzeyinde yol bulur. `RobotController` hedefe `MoveTo` durumunda ilerler; yol hesabı tamamlanıp hedefe 0,5 birimden yakın olduğunda durur ve `Scan` durumuna geçer. Sensör başlangıcı `sensorPoint` atanmışsa o noktadır, değilse robotun konumudur. İleri yönde `sensorRange` (varsayılan 5 birim) uzunluğunda fiziksel Raycast atılır. Çarpılan nesnenin etiketi `Salter` ise robot `Interact` durumuna geçer; lazer bariyeri kapatılır ve `GameEvents` üzerinden lazer olayı yayınlanır.
 
+Koridor kontrolleri: `WASD` ile hareket, fareyle bakış, `Space` ile zıplama, `F` ile el feneri ve sol tıklamayla robot komutu verilir. Robotun şaltere ulaşması için kamerayı şaltere veya yakınındaki yürünebilir zemine çevirip sol tıklayın.
+
 ### Robot FSM akışı
 
 ```mermaid
@@ -84,7 +86,7 @@ graph TD
     E -->|Yeni hedef komutu| C
 ```
 
-> **Uygulama ayrıntısı:** Depodaki `RobotController` içinde `NavMeshAgent` alınması ve FSM/Raycast/etkileşim akışı vardır. Hedefe `SetDestination` çağrısını yapan komut bağlantısı sahne ya da başka bir bileşende kurulmalıdır. Projeye ait beş başlangıç noktasının ham ölçüm kayıtları depoda bulunmadığından aşağıdaki tablo sonuç iddiası değil, test raporu şablonudur.
+> **Uygulama ayrıntısı:** Oyuncunun sol tıklama komutu `PlayerController` üzerinden `RobotController.MoveTo` metoduna iletilir; böylece robotun durum makinesi hedefe ulaşma ve şalter tarama adımlarını yönetir. Projeye ait beş başlangıç noktasının ham ölçüm kayıtları depoda bulunmadığından aşağıdaki tablo sonuç iddiası değil, test raporu şablonudur.
 
 ### Beş başlangıç noktasından yol bulma ve şaltere erişim testi
 
@@ -193,7 +195,7 @@ LLM, oyun döngüsünün dış bağımlılığı olduğundan başarısızlığı
 1. Depoyu Unity Hub ile, proje tarafından kullanılan uyumlu Unity sürümünde açın. Render ayarları Universal Render Pipeline (URP) yapılandırması içerir.
 2. Ollama’yı yerel makineye kurup çalıştırın. Model etiketini indirin (ör. `ollama pull llama3.2`). 1B varyantı hedefleniyorsa hem model indirme hem de `OllamaManager.modelName` değeri `llama3.2:1b` ile eşleştirilmelidir.
 3. Ollama servisinin varsayılan `http://localhost:11434` adresinde erişilebilir olduğunu doğrulayın. Projedeki uç nokta `http://localhost:11434/api/generate` şeklindedir.
-4. `Assets/Scenes/Level_Corrider.unity` koridor ve `Assets/Scenes/Level_Door.unity` kapı bölümü için kullanılır. Sahne geçişi `LevelGecisi.cs` tarafından yönetilir.
+4. `Assets/Scenes/MainMenu.unity` başlangıç menüsüdür; Build Settings'te ilk sıradadır. `Assets/Scenes/Level_Corridor.unity` koridor, `Assets/Scenes/Level_Door.unity` kapı bölümü için kullanılır. Menü `MainMenuUI.cs` üzerinden oyun akışını başlatır.
 5. Unity Editor’da koridor sahnesinden oyunu başlatın. Sahne nesnelerindeki NavMeshAgent, NavMesh yüzeyi, `Salter` etiketi, UI alanları ve Inspector referanslarının atanmış olduğundan emin olun.
 
 LLM servisi çalışmıyorsa oyun fallback yanıtıyla devam eder; doğal dil diyalog üretimi kullanılabilir olmaz.

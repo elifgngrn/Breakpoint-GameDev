@@ -1,6 +1,6 @@
 using UnityEngine;
-using UnityEngine.AI;
 using Breakpoint.Core;
+using Breakpoint.Robot;
 
 [RequireComponent(typeof(CharacterController))]
 public class PlayerController : MonoBehaviour
@@ -21,7 +21,7 @@ public class PlayerController : MonoBehaviour
     public Light elFeneri;
 
     [Header("Robot Komut Sistemi")]
-    public NavMeshAgent robot;
+    [SerializeField] private RobotController robotController;
     public float komutMenzili = 50f;
     private bool isDialogueActive = false;
 
@@ -44,6 +44,12 @@ public class PlayerController : MonoBehaviour
     void Start()
     {
         controller = GetComponent<CharacterController>();
+        if (robotController == null)
+            robotController = FindFirstObjectByType<RobotController>();
+
+        if (robotController == null)
+            Debug.LogWarning("PlayerController: RobotController bulunamadı; robot komutları devre dışı.", this);
+
         // Cursor.lockState ve Cursor.visible satırları SİLİNDİ, imleci artık GameManager yönetiyor
     }
 
@@ -99,10 +105,13 @@ public class PlayerController : MonoBehaviour
 
     private void RobotaKomutGonder()
     {
+        if (robotController == null || oyuncuKamerasi == null)
+            return;
+
         Ray ray = new Ray(oyuncuKamerasi.position, oyuncuKamerasi.forward);
         if (Physics.Raycast(ray, out RaycastHit hit, komutMenzili))
         {
-            if (robot != null) robot.SetDestination(hit.point);
+            robotController.MoveTo(hit.point);
         }
     }
 }
