@@ -2,12 +2,21 @@ using TMPro;
 using UnityEngine.UI;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using System.Collections;
+using Breakpoint.Core;
 
 public sealed class ClockHUD : MonoBehaviour
 {
     [SerializeField] private TMP_Text label;
     private TMP_Text objectiveLabel;
     private GameObject objectivePanel;
+    private TMP_Text notificationLabel;
+    private CanvasGroup notificationGroup;
+    private Coroutine notificationRoutine;
+
+    private void OnEnable() => GameEvents.NotificationRequested += ShowNotification;
+
+    private void OnDisable() => GameEvents.NotificationRequested -= ShowNotification;
 
     private void Start()
     {
@@ -15,6 +24,7 @@ public sealed class ClockHUD : MonoBehaviour
 
         ConfigureClockLabel();
         CreateObjectivePanel();
+        CreateNotification();
     }
 
     private void Update()
@@ -79,6 +89,64 @@ public sealed class ClockHUD : MonoBehaviour
         objectiveLabel.color = Color.white;
         objectiveLabel.alignment = TextAlignmentOptions.MidlineLeft;
         objectiveLabel.raycastTarget = false;
+    }
+
+    private void CreateNotification()
+    {
+        var canvas = label.canvas;
+        if (canvas == null) return;
+
+        var panel = new GameObject("GameNotification", typeof(RectTransform), typeof(CanvasGroup), typeof(UnityEngine.UI.Image));
+        panel.transform.SetParent(canvas.transform, false);
+        var rect = (RectTransform)panel.transform;
+        rect.anchorMin = new Vector2(0.5f, 1f);
+        rect.anchorMax = new Vector2(0.5f, 1f);
+        rect.pivot = new Vector2(0.5f, 1f);
+        rect.sizeDelta = new Vector2(560f, 56f);
+        rect.anchoredPosition = new Vector2(0f, -28f);
+
+        var image = panel.GetComponent<UnityEngine.UI.Image>();
+        image.color = new Color(0.035f, 0.055f, 0.075f, 0.94f);
+        image.raycastTarget = false;
+        notificationGroup = panel.GetComponent<CanvasGroup>();
+        notificationGroup.alpha = 0f;
+
+        var textObject = new GameObject("NotificationText", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+        textObject.transform.SetParent(panel.transform, false);
+        var textRect = (RectTransform)textObject.transform;
+        textRect.anchorMin = Vector2.zero;
+        textRect.anchorMax = Vector2.one;
+        textRect.offsetMin = new Vector2(16f, 6f);
+        textRect.offsetMax = new Vector2(-16f, -6f);
+        notificationLabel = textObject.GetComponent<TextMeshProUGUI>();
+        notificationLabel.font = label.font;
+        notificationLabel.fontSize = 20f;
+        notificationLabel.color = Color.white;
+        notificationLabel.alignment = TextAlignmentOptions.Center;
+        notificationLabel.raycastTarget = false;
+    }
+
+    private void ShowNotification(string message)
+    {
+        if (notificationLabel == null || notificationGroup == null) return;
+        notificationLabel.text = message;
+        if (notificationRoutine != null) StopCoroutine(notificationRoutine);
+        notificationRoutine = StartCoroutine(NotificationFade());
+    }
+
+    private IEnumerator NotificationFade()
+    {
+        notificationGroup.alpha = 1f;
+        yield return new WaitForSeconds(2.2f);
+        float elapsed = 0f;
+        while (elapsed < 0.35f)
+        {
+            elapsed += Time.deltaTime;
+            notificationGroup.alpha = 1f - Mathf.Clamp01(elapsed / 0.35f);
+            yield return null;
+        }
+        notificationGroup.alpha = 0f;
+        notificationRoutine = null;
     }
 
     private static string GetObjectiveText(GameManager gm)

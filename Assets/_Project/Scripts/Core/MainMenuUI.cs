@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 /// <summary>Başlangıç menüsünü çizer ve GameManager akışına bağlar.</summary>
 public sealed class MainMenuUI : MonoBehaviour
@@ -10,6 +11,56 @@ public sealed class MainMenuUI : MonoBehaviour
     private Texture2D panelTexture;
     private Texture2D buttonTexture;
     private Texture2D buttonHoverTexture;
+    private int selectedOption;
+    private GUIStyle selectedButtonStyle;
+    private bool quitConfirmationOpen;
+
+    private void Update()
+    {
+        if (Gamepad.current == null) return;
+
+        if (Gamepad.current.dpad.up.wasPressedThisFrame || Gamepad.current.dpad.down.wasPressedThisFrame ||
+            Gamepad.current.leftStick.up.wasPressedThisFrame || Gamepad.current.leftStick.down.wasPressedThisFrame)
+            selectedOption = 1 - selectedOption;
+
+        if (quitConfirmationOpen)
+        {
+            if (Gamepad.current.buttonSouth.wasPressedThisFrame)
+            {
+                if (selectedOption == 0) Application.Quit();
+                else quitConfirmationOpen = false;
+            }
+            else if (Gamepad.current.buttonEast.wasPressedThisFrame)
+            {
+                quitConfirmationOpen = false;
+                selectedOption = 1;
+            }
+            return;
+        }
+
+        if (Gamepad.current.buttonSouth.wasPressedThisFrame)
+            ActivateSelectedOption();
+        else if (Gamepad.current.buttonEast.wasPressedThisFrame)
+        {
+            quitConfirmationOpen = true;
+            selectedOption = 0;
+        }
+    }
+
+    private void ActivateSelectedOption()
+    {
+        if (selectedOption == 1)
+        {
+            quitConfirmationOpen = true;
+            selectedOption = 0;
+            return;
+        }
+
+        if (GameManager.Instance != null)
+            GameManager.Instance.StartNewGame();
+        else
+            Debug.LogError("MainMenuUI: GameManager bulunamadı.", this);
+    }
 
     private void Awake()
     {
@@ -42,6 +93,12 @@ public sealed class MainMenuUI : MonoBehaviour
         var panel = new Rect((Screen.width - width) * 0.5f, (Screen.height - height) * 0.5f, width, height);
         GUI.Box(panel, GUIContent.none, panelStyle);
 
+        if (quitConfirmationOpen)
+        {
+            DrawQuitConfirmation(panel);
+            return;
+        }
+
         GUILayout.BeginArea(new Rect(panel.x + 42f, panel.y + 34f, panel.width - 84f, panel.height - 68f));
         GUILayout.FlexibleSpace();
         GUILayout.Label("BREAKPOINT", titleStyle, GUILayout.Height(58f));
@@ -49,7 +106,7 @@ public sealed class MainMenuUI : MonoBehaviour
         GUILayout.Label("VİZE HAFTASI · KÜTÜPHANE FİRARI", subtitleStyle, GUILayout.Height(30f));
         GUILayout.Space(28f);
 
-        if (GUILayout.Button("OYUNA BAŞLA", buttonStyle, GUILayout.Height(58f)))
+        if (GUILayout.Button("OYUNA BAŞLA", GetButtonStyle(0), GUILayout.Height(58f)))
         {
             if (GameManager.Instance != null)
                 GameManager.Instance.StartNewGame();
@@ -58,12 +115,42 @@ public sealed class MainMenuUI : MonoBehaviour
         }
 
         GUILayout.Space(12f);
-        if (GUILayout.Button("ÇIKIŞ", buttonStyle, GUILayout.Height(48f)))
-            Application.Quit();
+        if (GUILayout.Button("ÇIKIŞ", GetButtonStyle(1), GUILayout.Height(48f)))
+        {
+            quitConfirmationOpen = true;
+            selectedOption = 0;
+        }
 
         GUILayout.FlexibleSpace();
         GUILayout.Label("Gece 04:00 — çıkış için robotun yardımına ihtiyacın var.", subtitleStyle, GUILayout.Height(24f));
         GUILayout.EndArea();
+    }
+
+    private void DrawQuitConfirmation(Rect panel)
+    {
+        GUILayout.BeginArea(new Rect(panel.x + 42f, panel.y + 78f, panel.width - 84f, panel.height - 156f));
+        GUILayout.FlexibleSpace();
+        GUILayout.Label("OYUNDAN ÇIKILSIN MI?", titleStyle, GUILayout.Height(58f));
+        GUILayout.Space(26f);
+        if (GUILayout.Button("EVET, ÇIK", GetButtonStyle(0), GUILayout.Height(56f)))
+            Application.Quit();
+        GUILayout.Space(12f);
+        if (GUILayout.Button("VAZGEÇ", GetButtonStyle(1), GUILayout.Height(52f)))
+        {
+            quitConfirmationOpen = false;
+            selectedOption = 1;
+        }
+        GUILayout.FlexibleSpace();
+        GUILayout.Label("A/× onayla   ·   B/○ vazgeç", subtitleStyle, GUILayout.Height(24f));
+        GUILayout.EndArea();
+    }
+
+    private GUIStyle GetButtonStyle(int option)
+    {
+        if (option != selectedOption) return buttonStyle;
+        selectedButtonStyle ??= new GUIStyle(buttonStyle);
+        selectedButtonStyle.normal.background = buttonHoverTexture;
+        return selectedButtonStyle;
     }
 
     private void EnsureStyles()

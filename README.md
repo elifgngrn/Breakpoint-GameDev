@@ -65,9 +65,13 @@ Bu ilkeler, mevcut kodun gözlemlenebilir yapısına göre açıklanmıştır; h
 
 ## Otonom AI kahraman
 
-Robot `NavMeshAgent` ile pişirilen NavMesh yüzeyinde yol bulur. Takip ve FSM güncellemeleri 0,15 saniyelik coroutine ile yürütülür. Takipte oyuncuya olan mesafe doğrudan `Vector3.Distance` ile ölçülür; durma mesafesi 1,8 birimdir. Hedefe gönderilen robot varışta `ScanInteract` durumuna geçer ve `sensorPoint` üzerinden ileri raycast atar. Sensör menzili varsayılan 5 birimdir. Çarpılan nesnenin etiketi `Salter` ise lazer bariyeri kapatılır ve `GameEvents` lazer olayını yayınlar. Robot hedefinden uzakta durursa kısa bir öne raycast ile bulunan engel konsola yazılır.
+Robot `NavMeshAgent` ile zemine bake edilmiş NavMesh üzerinde yol bulur. Takip ve FSM güncellemeleri 0,15 saniyelik coroutine ile yürütülür. Takip mesafesi doğrudan `Vector3.Distance` ile ölçülür; durma mesafesi 1,8 birimdir. Oyuncu şaltere tıklarsa `PlayerController`, `Salter` etiketli hedefi doğrudan robota iletir. Robot hedefe yaklaşınca şalteri çalıştırır; normal hedeflerde `sensorPoint` üzerinden ileri raycast kullanılır. Tam yol bulunamazsa robot kısmi yolun erişilebilir ucuna ilerler. Koridor sahnesinde zemin üzerindeki NavMesh yüzeyi kullanılmalı; Robot altındaki eski ikinci `NavMeshSurface` devre dışıdır.
 
-Koridor kontrolleri: `WASD` ile hareket, fareyle bakış, `Space` ile zıplama, `F` ile el feneri, sol tıklamayla robot komutu ve `Escape` ile duraklatma menüsü açılır. Robotun şaltere ulaşması için kamerayı şaltere veya yakınındaki yürünebilir zemine çevirip sol tıklayın.
+Koridor kontrolleri: `WASD` veya ok tuşlarıyla hareket, fareyle bakış, `Space` ile zıplama, `F` ile el feneri, sol tıklamayla robot komutu ve `Escape` ile duraklatma menüsü açılır. Gamepad’de sol çubuk hareket, sağ çubuk bakış, A/× zıplama, X/□ el feneri, sağ omuz tuşu robot komutu, Start duraklatmadır. Duraklatma menüsünden ana ses, fare hassasiyeti, ters dikey bakış ve tam ekran ayarlanıp kaydedilebilir. Girişler Unity Input System paketini kullanır. Nişangâh şaltere bakarken yeşile döner ve robot komut ipucunu gösterir.
+
+Ana menü gamepad ile de kullanılabilir: D-pad veya sol çubukla seçenek değişir, A/× seçer, B/○ çıkar.
+
+Kazanma ve kaybetme ekranlarında geçen oyun süresi gösterilir; kazanma süresi yerel en iyi kaçış rekoru olarak saklanır. D-pad veya sol çubukla “Tekrar Oyna” ve “Ana Menü” arasında seçim yapılır; A/× seçer, B/○ ana menüye döner.
 
 Saat göstergesinin yanında hedef paneli bulunur. Şalter devre dışı bırakılınca hedef çıkışa ulaşmak olarak değişir; kapı sahnesinde dilekçe ve çıkış adımlarını gösterir.
 
@@ -88,7 +92,7 @@ graph TD
     E -->|Yeni hedef komutu| C
 ```
 
-> **Uygulama ayrıntısı:** Oyuncunun sol tıklama komutu `PlayerController` üzerinden `RobotController.MoveTo` metoduna iletilir; böylece robotun durum makinesi hedefe ulaşma ve şalter tarama adımlarını yönetir. Projeye ait beş başlangıç noktasının ham ölçüm kayıtları depoda bulunmadığından aşağıdaki tablo sonuç iddiası değil, test raporu şablonudur.
+> **Uygulama ayrıntısı:** Şaltere tıklama `RobotController.MoveToSwitch` metoduna, yürünebilir zemine tıklama `RobotController.MoveTo` metoduna iletilir. Projeye ait beş başlangıç noktasının ham ölçüm kayıtları depoda bulunmadığından aşağıdaki tablo sonuç iddiası değil, test raporu şablonudur.
 
 ### Beş başlangıç noktasından yol bulma ve şaltere erişim testi
 
@@ -182,7 +186,7 @@ LLM, oyun döngüsünün dış bağımlılığı olduğundan başarısızlığı
 2. Ollama’yı yerel makineye kurup çalıştırın. Model etiketini indirin (ör. `ollama pull llama3.2`). 1B varyantı hedefleniyorsa hem model indirme hem de `OllamaManager.modelName` değeri `llama3.2:1b` ile eşleştirilmelidir.
 3. Ollama servisinin varsayılan `http://localhost:11434` adresinde erişilebilir olduğunu doğrulayın. Projedeki uç nokta `http://localhost:11434/api/generate` şeklindedir.
 4. `Assets/Scenes/MainMenu.unity` başlangıç menüsüdür; Build Settings'te ilk sıradadır. `Assets/Scenes/Level_Corridor.unity` koridor, `Assets/Scenes/Level_Door.unity` kapı bölümü için kullanılır. Menü `MainMenuUI.cs` üzerinden oyun akışını başlatır.
-5. Unity Editor’da koridor sahnesinden oyunu başlatın. Sahne nesnelerindeki NavMeshAgent, NavMesh yüzeyi, `Salter` etiketi, UI alanları ve Inspector referanslarının atanmış olduğundan emin olun.
+5. Unity Editor’da koridor sahnesinden oyunu başlatın. `Player Settings > Other Settings > Active Input Handling` değeri `Input System Package (New)` olmalıdır. Koridor sahnesinde zemine ait NavMeshSurface bake edilmiş ve etkin olmalı; Robot altındaki eski NavMeshSurface devre dışı kalmalıdır. Robotun NavMeshAgent bileşeni zemindeki NavMesh üzerinde başlamalıdır. Şalterin etiketi `Salter` olmalı ve lazer bariyeri referansı atanmalıdır.
 
 LLM servisi çalışmıyorsa oyun fallback yanıtıyla devam eder; doğal dil diyalog üretimi kullanılabilir olmaz.
 

@@ -41,6 +41,8 @@ namespace Breakpoint.Robot
         private Transform commandedSwitch;
         private float nextStuckWarningTime;
         private bool dependenciesValid;
+        private AudioSource feedbackAudio;
+        private AudioClip switchChime;
 
         public RobotState CurrentState => currentState;
 
@@ -71,6 +73,12 @@ namespace Breakpoint.Robot
             agent.stoppingDistance = FollowStoppingDistance;
             agent.autoBraking = false;
             agent.obstacleAvoidanceType = ObstacleAvoidanceType.LowQualityObstacleAvoidance;
+            feedbackAudio = GetComponent<AudioSource>();
+            if (feedbackAudio == null)
+                feedbackAudio = gameObject.AddComponent<AudioSource>();
+            feedbackAudio.playOnAwake = false;
+            feedbackAudio.spatialBlend = 0f;
+            switchChime = CreateSwitchChime();
             dependenciesValid = true;
         }
 
@@ -227,6 +235,7 @@ namespace Breakpoint.Robot
                 {
                     // Switch command is explicit: operate it from the closest reachable point.
                     Debug.LogWarning("RobotController: Şaltere tam yol yok; robot erişebildiği en yakın noktadan şalteri çalıştırıyor.", this);
+                    GameEvents.RaiseNotification("Robot şalteri erişebildiği en yakın noktadan çalıştırdı.");
                     ActivateSwitch(commandedSwitch);
                     return;
                 }
@@ -304,12 +313,15 @@ namespace Breakpoint.Robot
         {
             commandedSwitch = null;
 
+            bool barrierWasActive = lazerBariyeri != null && lazerBariyeri.activeSelf;
+
             if (lazerBariyeri != null)
             {
                 if (lazerBariyeri.activeSelf)
                 {
                     lazerBariyeri.SetActive(false);
                     GameEvents.RaiseLasersDisabled();
+                    GameEvents.RaiseNotification("Şalter çalıştı. Lazer bariyeri kapandı!");
                     Debug.Log("Robot şalteri algıladı; lazer bariyeri devre dışı bırakıldı.", this);
                 }
             }
@@ -321,7 +333,65 @@ namespace Breakpoint.Robot
             if (switchTransform != null)
                 Debug.Log("Robot şalterle etkileşime geçti: " + switchTransform.name, this);
 
+            if (barrierWasActive && switchTransform != null)
+                PlaySwitchFeedback(switchTransform);
+
             FollowPlayer();
+        }
+
+        private void PlaySwitchFeedback(Transform switchTransform)
+        {
+            if (switchChime != null && feedbackAudio != null)
+                feedbackAudio.PlayOneShot(switchChime, 0.65f);
+
+            Renderer[] renderers = switchTransform.GetComponentsInChildren<Renderer>();
+            foreach (Renderer switchRenderer in renderers)
+            {
+                MaterialPropertyBlock block = new MaterialPropertyBlock();
+                switchRenderer.GetPropertyBlock(block);
+                block.SetColor("_EmissionColor", new Color(0.1f, 1f, 0.35f) * 3f);
+                switchRenderer.SetPropertyBlock(block);
+            }
+
+            GameObject pulseObject = new GameObject("RobotSwitchPulse");
+            pulseObject.transform.position = switchTransform.position + Vector3.up * 0.7f;
+            Light pulseLight = pulseObject.AddComponent<Light>();
+            pulseLight.type = LightType.Point;
+            pulseLight.color = new Color(0.15f, 1f, 0.4f);
+            pulseLight.range = 4f;
+            pulseLight.intensity = 3f;
+            Destroy(pulseObject, 0.45f);
+            StartCoroutine(ClearSwitchFlash(renderers, 0.45f));
+        }
+
+        private IEnumerator ClearSwitchFlash(Renderer[] renderers, float duration)
+        {
+            yield return new WaitForSeconds(duration);
+            foreach (Renderer switchRenderer in renderers)
+            {
+                if (switchRenderer != null)
+                    switchRenderer.SetPropertyBlock(null);
+            }
+        }
+
+        private static AudioClip CreateSwitchChime()
+        {
+            const int sampleRate = 22050;
+            const float duration = 0.32f;
+            int sampleCount = Mathf.CeilToInt(sampleRate * duration);
+            float[] samples = new float[sampleCount];
+
+            for (int i = 0; i < sampleCount; i++)
+            {
+                float t = i / (float)sampleRate;
+                float envelope = Mathf.Sin(Mathf.PI * i / sampleCount);
+                float frequency = Mathf.Lerp(660f, 990f, t / duration);
+                samples[i] = Mathf.Sin(2f * Mathf.PI * frequency * t) * envelope * 0.22f;
+            }
+
+            AudioClip clip = AudioClip.Create("RobotSwitchChime", sampleCount, 1, sampleRate, false);
+            clip.SetData(samples, 0);
+            return clip;
         }
 
         private void OnValidate()

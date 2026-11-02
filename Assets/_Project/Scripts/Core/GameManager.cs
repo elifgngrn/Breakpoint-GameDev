@@ -1,5 +1,6 @@
 using System;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
 using Breakpoint.Core;
 
@@ -75,7 +76,9 @@ public sealed class GameManager : MonoBehaviour
 
     private void Update()
     {
-        if (!Input.GetKeyDown(KeyCode.Escape)) return;
+        bool keyboardPause = Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame;
+        bool gamepadPause = Gamepad.current != null && Gamepad.current.startButton.wasPressedThisFrame;
+        if (!keyboardPause && !gamepadPause) return;
 
         if (State == GameState.Playing)
             Pause();

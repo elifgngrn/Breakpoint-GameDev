@@ -12,6 +12,7 @@ namespace Breakpoint.Core
         public static Action DoorUnlocked;
         public static Action EscapeCompleted;
         public static Action TimeExpired;
+        public static Action<string> NotificationRequested;
 
         // --- TETİKLEYİCİ METOTLAR (Raise Methods) ---
         public static void RaiseLasersDisabled() => LasersDisabled?.Invoke();
@@ -21,5 +22,6 @@ namespace Breakpoint.Core
         public static void RaiseDoorUnlocked() => DoorUnlocked?.Invoke();
         public static void RaiseEscapeCompleted() => EscapeCompleted?.Invoke();
         public static void RaiseTimeExpired() => TimeExpired?.Invoke();
+        public static void RaiseNotification(string message) => NotificationRequested?.Invoke(message);
     }
 }

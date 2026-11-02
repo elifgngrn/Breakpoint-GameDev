@@ -14,6 +14,8 @@ public sealed class GameClock : MonoBehaviour
     private bool expiredRaised;
 
     public bool Running { get; private set; }
+    public float ElapsedSeconds => elapsed;
+    public string ElapsedFormatted => $"{Mathf.FloorToInt(elapsed / 60f):00}:{Mathf.FloorToInt(elapsed % 60f):00}";
     public float Normalized => Mathf.Clamp01(elapsed / realDurationSeconds);
     public float CurrentHour => Mathf.Lerp(startHour, endHour, Normalized);
 
