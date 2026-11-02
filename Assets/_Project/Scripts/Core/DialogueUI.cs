@@ -33,7 +33,7 @@ public class DialogueUI : MonoBehaviour
             return;
         }
         dialoguePanel.SetActive(true);
-        GameEvents.RaiseDialogueStarted(); 
+        GameEvents.RaiseDialogueStarted();
         
         // Oyuncunun hareketini ve kamerasını dondur, imleci serbest bırak
         FindAnyObjectByType<PlayerController>()?.SetDialogueActive(true);
@@ -66,10 +66,20 @@ public class DialogueUI : MonoBehaviour
 
     private async void MesajGonder()
     {
-        // Gerekli bileşenler yoksa UI üzerinde güvenli şekilde dur.
-        if (playerInputField == null || npcAnswerText == null || ollamaManager == null)
+        // Her referans kullanılmadan önce doğrulanır; eksik UI/servis oyunu düşürmez.
+        if (playerInputField == null)
         {
-            Debug.LogError("DialogueUI: playerInputField, npcAnswerText ve ollamaManager atanmalı.", this);
+            Debug.LogError("DialogueUI: playerInputField Inspector'da atanmamış.", this);
+            return;
+        }
+        if (npcAnswerText == null)
+        {
+            Debug.LogError("DialogueUI: npcAnswerText Inspector'da atanmamış.", this);
+            return;
+        }
+        if (ollamaManager == null)
+        {
+            Debug.LogError("DialogueUI: ollamaManager Inspector'da atanmamış.", this);
             return;
         }
 
@@ -81,7 +91,12 @@ public class DialogueUI : MonoBehaviour
         npcAnswerText.text = "Kütüphaneci dilekçeni okuyor...";
 
     // Mesajı Ollama'ya gönder ve yanıt bekle
-        var yanit = await ollamaManager.SendPromptToOllama(mesaj);
+        var manager = ollamaManager;
+        var yanit = await manager.SendPromptToOllama(mesaj);
+
+        // Sahne değişmiş veya UI kapatılmış olabilirken async istek tamamlanabilir.
+        if (this == null || npcAnswerText == null || playerInputField == null)
+            return;
 
     // Yanıtın null gelme ihtimaline karşı güvenlik kontrolü
         if (yanit == null)
@@ -92,17 +107,22 @@ public class DialogueUI : MonoBehaviour
         }
 
     // Gelen yanıtı ekrana yazdır
-        npcAnswerText.text = yanit.dialogue;
+        npcAnswerText.text = string.IsNullOrEmpty(yanit.dialogue)
+            ? "Kütüphaneci cevap verdi ancak mesajı alınamadı."
+            : yanit.dialogue;
 
         if (!yanit.door_locked)
         {
         Debug.Log("Güvenlik ikna oldu, kapı açılıyor!");
-        GameEvents.RaiseDoorUnlocked();   // sayaç durur
-        
         var door = FindAnyObjectByType<DoorController>();
         if (door != null)
         {
             door.UnlockAndOpenDoor();
+            GameEvents.RaiseDoorUnlocked(); // Kapı açılınca süre durur; sahne geçişi kapı trigger'ındadır.
+        }
+        else
+        {
+            Debug.LogWarning("DialogueUI: Sahne içinde DoorController bulunamadı; kapı açılamadı.", this);
         }
         }
 

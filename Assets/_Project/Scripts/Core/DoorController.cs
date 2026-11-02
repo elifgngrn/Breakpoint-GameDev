@@ -1,32 +1,57 @@
-using System.Collections;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 using Breakpoint.Core;
 
 namespace Core
 {
-    public class DoorController : MonoBehaviour
+    /// <summary>
+    /// Kapıyı yalnızca diyalog kararıyla açar. Oyuncu açılmış kapının trigger alanından
+    /// geçtiğinde kaçış tamamlanır; kapıyı açmak tek başına sahne/oyun geçişi başlatmaz.
+    /// </summary>
+    [RequireComponent(typeof(Collider))]
+    public sealed class DoorController : MonoBehaviour
     {
-        private AudioSource audioSource;
-        public AudioClip unlockSound; // Ses dosyasını buraya bağlayacağız
+        [SerializeField] private AudioClip unlockSound;
 
-        void Start()
+        private AudioSource audioSource;
+        private Collider doorCollider;
+        private bool isUnlocked;
+
+        private void Awake()
         {
             audioSource = GetComponent<AudioSource>();
+            doorCollider = GetComponent<Collider>();
+
+            if (doorCollider == null)
+            {
+                Debug.LogError("DoorController: Kapı Collider bileşeni bulunamadı.", this);
+                enabled = false;
+                return;
+            }
+
+            // Kapı kilitliyken fiziksel engel, açılınca geçiş trigger'ı olarak çalışır.
+            doorCollider.isTrigger = false;
         }
 
         public void UnlockAndOpenDoor()
         {
-            Debug.Log("Kapı mekanizması çalıştı, ses çalınıyor...");
+            if (!enabled || doorCollider == null || isUnlocked)
+                return;
 
-            // Ses dosyası atanmışsa çal
+            isUnlocked = true;
+            doorCollider.isTrigger = true;
+
             if (audioSource != null && unlockSound != null)
-            {
                 audioSource.PlayOneShot(unlockSound);
-            }
 
-            // Doğrudan Build Index (1) numaralı Level_Corridor sahnesine geçiş yap
-            SceneManager.LoadScene(1);
+            Debug.Log("Kapı açıldı. Kaçışı tamamlamak için kapı trigger alanından geçin.", this);
+        }
+
+        private void OnTriggerEnter(Collider other)
+        {
+            if (!isUnlocked || other == null || !other.CompareTag("Player"))
+                return;
+
+            GameEvents.RaiseEscapeCompleted();
         }
     }
 }

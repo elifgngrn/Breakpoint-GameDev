@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.AI;
 using Core;
+using Breakpoint.Core;
 
 namespace Breakpoint.Robot
 {
@@ -40,6 +41,14 @@ namespace Breakpoint.Robot
 
         private void Awake()
         {
+            // Sahne referansı Inspector'dan verilmemişse Player etiketiyle otomatik bul.
+            if (playerTransform == null)
+            {
+                GameObject playerObj = GameObject.FindGameObjectWithTag("Player");
+                if (playerObj != null)
+                    playerTransform = playerObj.transform;
+            }
+
             // RequireComponent normalde ajanı sağlar; kontrol, eksik/bozuk sahne durumlarını da kapsar.
             agent = GetComponent<NavMeshAgent>();
             if (agent == null)
