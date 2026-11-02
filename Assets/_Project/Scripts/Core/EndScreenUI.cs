@@ -13,6 +13,18 @@ public sealed class EndScreenUI : MonoBehaviour
             GameManager.Instance.StateChanged += OnStateChanged;
     }
 
+    private void OnEnable()
+    {
+        // Sütlaç'ın yazdığı GameClock zamanı bitirince GameEvents üzerinden bu olay tetiklenir
+        GameEvents.OnTimeExpired += HandleTimeExpired;
+    }
+
+    private void OnDisable()
+    {
+        // Hafıza sızıntısını (memory leak) önlemek için aboneliği iptal ediyoruz
+        GameEvents.OnTimeExpired -= HandleTimeExpired;
+    }
+
     private void OnDestroy()
     {
         if (GameManager.Instance != null)
@@ -23,6 +35,13 @@ public sealed class EndScreenUI : MonoBehaviour
     {
         winPanel.SetActive(state == GameState.Won);
         losePanel.SetActive(state == GameState.Lost);
+    }
+
+    private void HandleTimeExpired()
+    {
+        // Zaman dolduğunda kaybetme panelini ("Yakalandınız") aktif et
+        losePanel.SetActive(true);
+        Time.timeScale = 0f; // Oyunu dondur
     }
 
     private void Hide()
