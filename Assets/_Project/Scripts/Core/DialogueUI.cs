@@ -55,29 +55,45 @@ public class DialogueUI : MonoBehaviour
     }
 
     private async void MesajGonder()
+{
+    // Bileşenlerin atanıp atanmadığını kontrol et
+    if (playerInputField == null || npcAnswerText == null || ollamaManager == null) return;
+
+    string mesaj = playerInputField.text;
+    if (string.IsNullOrWhiteSpace(mesaj)) return;
+
+    // Çift tıklamayı önlemek için butonu geçici kapat
+    if (sendButton != null) sendButton.interactable = false;
+    npcAnswerText.text = "Kütüphaneci dilekçeni okuyor...";
+
+    // Mesajı Ollama'ya gönder ve yanıt bekle
+    var yanit = await ollamaManager.SendPromptToOllama(mesaj);
+
+    // Yanıtın null gelme ihtimaline karşı güvenlik kontrolü
+    if (yanit == null)
     {
-        string mesaj = playerInputField.text;
-        if (string.IsNullOrWhiteSpace(mesaj)) return;
-
-        // Çift tıklamayı önlemek için butonu geçici kapat
-        sendButton.interactable = false;
-        npcAnswerText.text = "Kütüphaneci dilekçeni okuyor...";
-
-        // Mesajı Ollama'ya gönder ve yanıt bekle
-        var yanit = await ollamaManager.SendPromptToOllama(mesaj);
-
-        // Gelen yanıtı ekrana yazdır
-        npcAnswerText.text = yanit.dialogue;
-
-        if (!yanit.door_locked)
-        {
-            Debug.Log("Güvenlik ikna oldu, kapı açılıyor!");
-            GameEvents.RaiseDoorUnlocked();   // sayaç durur
-            FindAnyObjectByType<DoorController>().UnlockAndOpenDoor();
-        }
-
-        // Yeni mesaj yazılabilmesi için alanı temizle ve butonu aç
-        playerInputField.text = "";
-        sendButton.interactable = true;
+        npcAnswerText.text = "Kütüphaneci şu an cevap veremiyor.";
+        if (sendButton != null) sendButton.interactable = true;
+        return;
     }
+
+    // Gelen yanıtı ekrana yazdır
+    npcAnswerText.text = yanit.dialogue;
+
+    if (!yanit.door_locked)
+    {
+        Debug.Log("Güvenlik ikna oldu, kapı açılıyor!");
+        GameEvents.RaiseDoorUnlocked();   // sayaç durur
+        
+        var door = FindAnyObjectByType<DoorController>();
+        if (door != null)
+        {
+            door.UnlockAndOpenDoor();
+        }
+    }
+
+    // Yeni mesaj yazılabilmesi için alanı temizle ve butonu aç
+    playerInputField.text = "";
+    if (sendButton != null) sendButton.interactable = true;
+}
 }

@@ -3,52 +3,29 @@ using UnityEngine;
 using Breakpoint.Core;
 namespace Core
 {
+    using UnityEngine;
+
     public class DoorController : MonoBehaviour
     {
-        [Header("Kapı Fiziksel Hareket Ayarları")]
-        [SerializeField] private Vector3 openOffset = new Vector3(0, 3f, 0);
-        [SerializeField] private float speed = 2f;
+        private AudioSource audioSource;
+        public AudioClip unlockSound; // Ses dosyasını buraya bağlayacağız
 
-        private Vector3 closedPosition;
-        private Vector3 openPosition;
-        private bool isOpen = false;
-
-        private void Start()
+        void Start()
         {
-            closedPosition = transform.position;
-            openPosition = closedPosition + openOffset;
+            audioSource = GetComponent<AudioSource>();
         }
 
         public void UnlockAndOpenDoor()
         {
-            if (!isOpen)
+            Debug.Log("Kapı mekanizması çalıştı, ses çalınıyor...");
+
+            // Ses dosyası atanmışsa çal
+            if (audioSource != null && unlockSound != null)
             {
-                isOpen = true;
-                GameEvents.RaiseDoorUnlocked(); // Core Event tetiklendi[cite: 5]
-                Debug.Log("<color=green>Çıkış kapısının kilidi açıldı ve hareket başlatıldı!</color>");
-
-                StartCoroutine(AnimateDoorOpen());
+                audioSource.PlayOneShot(unlockSound);
             }
-        }
 
-        private IEnumerator AnimateDoorOpen()
-        {
-            float time = 0;
-            while (time < 1)
-            {
-                transform.position = Vector3.Lerp(closedPosition, openPosition, time);
-                time += Time.deltaTime * speed;
-                yield return null;
-            }
-            transform.position = openPosition;
-            
-            CompleteEscapeSequence();
-        }
-
-        public void CompleteEscapeSequence()
-        {
-            GameEvents.RaiseEscapeCompleted(); // Kaçış tamamlandı event'i[cite: 5]
-            Debug.Log("<color=cyan>Kütüphaneden başarıyla firar edildi!</color>");
+            // Burada kapının açılma animasyonu veya pozisyon değişimi yer alıyor olabilir
         }
     }
 }
