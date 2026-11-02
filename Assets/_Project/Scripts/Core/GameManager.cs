@@ -23,6 +23,7 @@ public sealed class GameManager : MonoBehaviour
     public GameState State { get; private set; } = GameState.MainMenu;
     public GameClock Clock => clock;
     public bool LasersCleared { get; private set; }
+    public bool DoorUnlocked { get; private set; }
     public event Action<GameState> StateChanged;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
@@ -41,6 +42,8 @@ public sealed class GameManager : MonoBehaviour
 
         clock = GetComponent<GameClock>();
         cursor = new CursorController();
+        if (GetComponent<PauseMenuUI>() == null)
+            gameObject.AddComponent<PauseMenuUI>();
 
         // Menü sahnesi yoksa / başka sahneden başlatıldıysa direkt oyuna gir
         bool inMenu = SceneManager.GetActiveScene().name == menuScene;
@@ -70,16 +73,39 @@ public sealed class GameManager : MonoBehaviour
         GameEvents.TimeExpired         -= OnTimeExpired;
     }
 
+    private void Update()
+    {
+        if (!Input.GetKeyDown(KeyCode.Escape)) return;
+
+        if (State == GameState.Playing)
+            Pause();
+        else if (State == GameState.Paused)
+            Resume();
+    }
+
     // ---- Menüden çağrılır ----
     public void StartNewGame()
     {
         LasersCleared = false;
+        DoorUnlocked = false;
         clock.ResetClock();
         SceneManager.LoadScene(corridorScene);
         BeginPlaying();
     }
 
     public void Restart() => StartNewGame();
+
+    public void Pause()
+    {
+        if (State == GameState.Playing)
+            SetState(GameState.Paused);
+    }
+
+    public void Resume()
+    {
+        if (State == GameState.Paused)
+            SetState(GameState.Playing);
+    }
 
     public void QuitToMenu()
     {
@@ -108,7 +134,11 @@ public sealed class GameManager : MonoBehaviour
     }
 
     // Kapı açıldı: kaçış sekansı sürerken süre işlemesin
-    private void OnDoorUnlocked() => clock.StopClock();
+    private void OnDoorUnlocked()
+    {
+        DoorUnlocked = true;
+        clock.StopClock();
+    }
 
     private void OnEscapeCompleted() => Finish(GameState.Won);
 
@@ -146,6 +176,7 @@ public sealed class GameManager : MonoBehaviour
                 Time.timeScale = 1f;
                 cursor.SetUIMode();
                 break;
+            case GameState.Paused:
             case GameState.Won:
             case GameState.Lost:
                 Time.timeScale = 0f;

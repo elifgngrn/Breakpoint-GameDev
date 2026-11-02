@@ -1461,6 +1461,7 @@ MonoBehaviour:
   playerInputField: {fileID: 707793667}
   sendButton: {fileID: 1063211301}
   ollamaManager: {fileID: 1993002135}
+  petitionRules: {fileID: 11400000, guid: 7281db408435459fa34b7e74e41a52a1, type: 2}
 --- !u!114 &1056705566
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2385,7 +2386,6 @@ MonoBehaviour:
   oyuncuKamerasi: {fileID: 330585546}
   fareHassasiyeti: 2
   elFeneri: {fileID: 1248813150}
-  robot: {fileID: 0}
   komutMenzili: 50
 --- !u!143 &1808777083
 CharacterController:
@@ -2607,6 +2607,7 @@ MonoBehaviour:
   playerInputField: {fileID: 707793667}
   sendButton: {fileID: 1063211301}
   ollamaManager: {fileID: 1993002135}
+  petitionRules: {fileID: 11400000, guid: 7281db408435459fa34b7e74e41a52a1, type: 2}
 --- !u!114 &1869304830
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2745,18 +2746,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::OllamaManager
   ollamaUrl: http://localhost:11434/api/generate
   modelName: llama3.2
-  systemPrompt: "Sen Kocaeli \xDCniversitesi K\xFCt\xFCphanesi'nin gece 04:00 n\xF6betindeki
-    kuralc\u0131 ve aksi N\xF6bet\xE7i K\xFCt\xFCphanecisisin. G\xF6revin \xE7\u0131k\u0131\u015F
-    kap\u0131s\u0131n\u0131 korumakt\u0131r.\r\n\r\nKurallar:\r\n1. Oyuncu resmi
-    bir dille yaz\u0131lm\u0131\u015F mant\u0131kl\u0131 bir mazeret dilek\xE7esi
-    sunarsa ikna ol ve kap\u0131y\u0131 a\xE7 (\"door_locked\": false, \"call_police\":
-    false).\r\n2. Oyuncu sa\xE7malar veya dilek\xE7e vermezse kap\u0131y\u0131 a\xE7ma
-    (\"door_locked\": true, \"call_police\": false).\r\n3. Oyuncu sana hakaret eder
-    veya zorla ka\xE7maya \xE7al\u0131\u015F\u0131rsa polisi \xE7a\u011F\u0131r (\"door_locked\":
-    true, \"call_police\": true).\r\n\r\nYANITINI KES\u0130NL\u0130KLE BA\u015EKA
-    H\u0130\xC7B\u0130R A\xC7IKLAMA VEYA MET\u0130N EKLEMEDEN SADECE VE SADECE A\u015EA\u011EIDAK\u0130
-    JSON FORMATINDA VER:\r\n{\r\n  \"dialogue\": \"K\xFCt\xFCphanecinin verece\u011Fi
-    yan\u0131t\",\r\n  \"door_locked\": true,\r\n  \"call_police\": false\r\n}"
 --- !u!1 &2081789484
 GameObject:
   m_ObjectHideFlags: 0

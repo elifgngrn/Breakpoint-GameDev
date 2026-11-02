@@ -2,7 +2,7 @@
 
 Kocaeli Üniversitesi Teknoloji Fakültesi Bilişim Sistemleri Mühendisliği Bölümü Yazılım Geliştirme Laboratuvarı I dersi kapsamında geliştirilen, Unity tabanlı macera ve yapay zekâ prototipidir.
 
-> **Durum notu:** Bu belge, istenen hedef mimariyi ve depodaki mevcut uygulamayı birlikte açıklar. Depodaki `OllamaManager` şu anda `dialogue`, `door_locked`, `call_police` alanlarını `JsonUtility` ile işler; istenen `dialogue_text` ve `mood` alanları mevcut `NPCResponseData` sınıfında henüz yoktur. Ayrıca kodda istek zaman aşımı 30 saniyedir. Aşağıdaki test sonuçları için gerçek ölçüm verisi sağlanmadığından sonuç uydurulmamış, ölçüm tablosu doldurulabilir biçimde bırakılmıştır.
+> **Durum notu:** Kapı kararı artık yerel `PetitionValidator` kurallarıyla verilir; Ollama yalnızca kütüphaneci diyaloğunu üretir. Model yanıtı gelmese bile geçerli dilekçe kapıyı açabilir. Ollama isteği varsayılan 8 saniyede zaman aşımına uğrar. Aşağıdaki robot test tablosu gerçek ölçüm verisi sağlanmadığı için doldurulabilir şablon olarak bırakılmıştır.
 
 ## İçindekiler
 
@@ -65,9 +65,11 @@ Bu ilkeler, mevcut kodun gözlemlenebilir yapısına göre açıklanmıştır; h
 
 ## Otonom AI kahraman
 
-Robot `NavMeshAgent` ile pişirilen NavMesh yüzeyinde yol bulur. `RobotController` hedefe `MoveTo` durumunda ilerler; yol hesabı tamamlanıp hedefe 0,5 birimden yakın olduğunda durur ve `Scan` durumuna geçer. Sensör başlangıcı `sensorPoint` atanmışsa o noktadır, değilse robotun konumudur. İleri yönde `sensorRange` (varsayılan 5 birim) uzunluğunda fiziksel Raycast atılır. Çarpılan nesnenin etiketi `Salter` ise robot `Interact` durumuna geçer; lazer bariyeri kapatılır ve `GameEvents` üzerinden lazer olayı yayınlanır.
+Robot `NavMeshAgent` ile pişirilen NavMesh yüzeyinde yol bulur. Takip ve FSM güncellemeleri 0,15 saniyelik coroutine ile yürütülür. Takipte oyuncuya olan mesafe doğrudan `Vector3.Distance` ile ölçülür; durma mesafesi 1,8 birimdir. Hedefe gönderilen robot varışta `ScanInteract` durumuna geçer ve `sensorPoint` üzerinden ileri raycast atar. Sensör menzili varsayılan 5 birimdir. Çarpılan nesnenin etiketi `Salter` ise lazer bariyeri kapatılır ve `GameEvents` lazer olayını yayınlar. Robot hedefinden uzakta durursa kısa bir öne raycast ile bulunan engel konsola yazılır.
 
-Koridor kontrolleri: `WASD` ile hareket, fareyle bakış, `Space` ile zıplama, `F` ile el feneri ve sol tıklamayla robot komutu verilir. Robotun şaltere ulaşması için kamerayı şaltere veya yakınındaki yürünebilir zemine çevirip sol tıklayın.
+Koridor kontrolleri: `WASD` ile hareket, fareyle bakış, `Space` ile zıplama, `F` ile el feneri, sol tıklamayla robot komutu ve `Escape` ile duraklatma menüsü açılır. Robotun şaltere ulaşması için kamerayı şaltere veya yakınındaki yürünebilir zemine çevirip sol tıklayın.
+
+Saat göstergesinin yanında hedef paneli bulunur. Şalter devre dışı bırakılınca hedef çıkışa ulaşmak olarak değişir; kapı sahnesinde dilekçe ve çıkış adımlarını gösterir.
 
 ### Robot FSM akışı
 
@@ -76,7 +78,7 @@ graph TD
     A([Başlangıç]) --> B[Idle: bekle]
     B -->|Hareket komutu ve hedef| C[MoveTo: NavMeshAgent hedefe ilerler]
     C -->|Yol hesaplanıyor| C
-    C -->|Hedefe uzaklık <= 0.5| D[Agent durdurulur]
+    C -->|Hedefe uzaklık <= 1.8| D[Agent durdurulur]
     D --> E[Scan: ileri yönde Raycast]
     E -->|Çarpışma yok veya hedef değil| E
     E -->|Etiket Salter| F[Interact]
@@ -106,30 +108,17 @@ Ollama, modelin yerel makinede çalışmasını sağlar; böylece oyun diyaloğu
 
 ### İstek ve yanıt sözleşmesi
 
-Sistem yönergesi NPC’yi gece nöbetindeki kuralcı kütüphaneci olarak tanımlar. Mantıklı ve resmi mazerette kapının açılması, anlamsız mesajda kapının kapalı kalması, hakaret veya zorla kaçma teşebbüsünde polis çağrılması kurallarını belirtir. Üretilen yanıt yalnızca JSON olmalıdır.
+`PetitionValidator`, [PetitionRules_Default.asset](Assets/_Project/Data/PetitionRules_Default.asset) içindeki dilekçe kurallarını uygular: en az karakter sayısı, resmî hitap, mazeret ve açık çıkış talebi. Bu alanlar Unity Inspector’da düzenlenebilir. Kapı yalnızca yerel kontrolden geçerse açılır. Ollama’ya kabul/red sonucu bağlam olarak verilir; modelin ürettiği karar alanları oyun tarafından okunmaz. Böylece model yanıtı kapı kuralını değiştiremez.
 
-İstenen hedef şema:
-
-```json
-{
-  "dialogue_text": "Kütüphanecinin oyuncuya yanıtı",
-  "mood": "calm | annoyed | alarmed",
-  "door_locked": true,
-  "call_police": false
-}
-```
-
-Mevcut `NPCResponseData` ve `OllamaManager` uygulamasının beklediği şema:
+`NPCResponseData` ve `OllamaManager` yalnızca diyalog metnini işler:
 
 ```json
 {
-  "dialogue": "Kütüphanecinin oyuncuya yanıtı",
-  "door_locked": true,
-  "call_police": false
+  "dialogue": "Kütüphanecinin oyuncuya yanıtı"
 }
 ```
 
-Ollama `/api/generate` uç noktasının dış yanıtındaki `response` metni ayrıca çözülür. Model yanıtı, uygulama tarafında `NPCResponseData` nesnesine dönüştürülür. Mevcut projede Newtonsoft.Json değil Unity `JsonUtility` kullanılmaktadır. Hedef şemadaki `dialogue_text` ve `mood` alanlarının kullanılabilmesi için C# DTO, prompt ve tüketici kodlarının birlikte güncellenmesi gerekir.
+Ollama `/api/generate` uç noktasının dış yanıtındaki `response` metni ayrıca çözülür. Model yanıtı, uygulama tarafında `NPCResponseData` nesnesine dönüştürülür. Mevcut projede Newtonsoft.Json değil Unity `JsonUtility` kullanılmaktadır. DTO yalnızca `dialogue` alanını içerir; kapı kararı DTO'da taşınmaz.
 
 ### Diyalog istek/yanıt sırası
 
@@ -140,43 +129,40 @@ sequenceDiagram
     participant UI as DialogueUI
     participant OM as OllamaManager
     participant L as Yerel Ollama (llama3.2)
-    participant E as GameEvents
     participant D as DoorController
 
     P->>UI: Mesajı yazar ve gönderir
-    UI->>OM: SendPromptToOllama(mesaj)
+    UI->>UI: PetitionValidator ile yerel kabul/red kararı
+    alt Dilekçe kabul edilir
+        UI->>D: Kapıyı aç ve saati durdur
+    else Dilekçe reddedilir
+        UI-->>P: Eksik dilekçe koşulunu göster
+    end
+    UI->>OM: SendPromptToOllama(mesaj, yerelKarar)
     OM->>OM: İstek gövdesini JSON olarak hazırla
     OM->>L: POST /api/generate (stream=false)
     alt Ollama başarılı yanıt verir
         L-->>OM: HTTP yanıt sarmalayıcısı ve response JSON metni
         OM->>OM: Sarmalayıcıyı ve NPCResponseData'yı çöz
-        OM-->>UI: NPCResponseData
-        UI-->>P: NPC diyalog metnini göster
-        UI->>E: Diyalog karar olayını yayınla
-        E-->>D: Kapı/polis kararını ilet
-        D->>D: door_locked ve call_police durumunu uygula
+        OM-->>UI: Yalnızca NPC diyalog metni
+        UI-->>P: Kütüphanecinin yanıtını göster
     else Sunucu kapalı, ağ hatası veya istisna
         L--xOM: Bağlantı hatası / yanıt yok
         OM->>OM: Try-Catch ve GetFallbackResponse
-        OM-->>UI: Güvenli varsayılan yanıt (kapı kilitli)
-        UI-->>P: Erişilemeyen kütüphaneci mesajını göster
-        UI->>E: Varsayılan güvenli kararı yayınla
-        E-->>D: door_locked=true, call_police=false
-        D->>D: Kapıyı kapalı tut
+        OM-->>UI: Yerel kararla tutarlı varsayılan diyalog
+        UI-->>P: Varsayılan yanıtı göster
     end
 ```
 
 ### Örnek diyalog senaryoları
 
-Aşağıdaki JSON’lar hedef şema ile örneklenen beklenen model çıktılarıdır; canlı model çıktısının her çalıştırmada aynı olacağı garanti edilmez. Bugünkü DTO uyumluluğunda `dialogue_text` alanı `dialogue` olarak yazılmalı ve `mood` alanı çıkarılmalıdır.
+Tablodaki dilekçe sonucu yerel doğrulayıcıya aittir. Örnek diyaloglar model yanıtı için temsildir; canlı yanıt her çalıştırmada değişebilir.
 
 | Senaryo | Oyuncu mesajı | Örnek JSON yanıtı | Oyun durumuna etkisi |
 |---|---|---|---|
-| **İkna eden** | “Sayın görevli, sabah teslim etmem gereken sınav projemi tamamlamak için içeride kaldım. Kimliğimi ve danışman onayımı gösterebilirim.” | `{"dialogue_text":"Mazeretiniz makul görünüyor. Bu kez çıkışa izin veriyorum.","mood":"calm","door_locked":false,"call_police":false}` | Kapı açılır; polis çağrılmaz. |
-| **Kızdıran** | “Kurallarınızı umursamıyorum, hemen aç şu kapıyı!” | `{"dialogue_text":"Bu üslup kabul edilemez. Güvenlik görevlilerine haber veriyorum.","mood":"alarmed","door_locked":true,"call_police":true}` | Kapı kilitli kalır; polis/güvenlik olayı başlatılır. |
-| **Saçmalayan** | “Üç mor bulut kantinde satranç oynarken saat neden kare?” | `{"dialogue_text":"Anlaşılır bir mazeret sunmadınız. Kapı kapalı kalacak.","mood":"annoyed","door_locked":true,"call_police":false}` | Kapı kilitli kalır; ek güvenlik çağrısı yapılmaz. |
-| **Rüşvet teklif eden** | “Size para vereyim, kapıyı açın.” | `{"dialogue_text":"Rüşvet teklifini reddediyorum. Kurallar gereği çıkış izni veremem.","mood":"annoyed","door_locked":true,"call_police":false}` | Kapı kilitli kalır. İstenirse bu davranış sistem promptunda açıkça polis çağrısı kuralına bağlanmalıdır. |
-| **Resmi dilekçe sunan** | “Kütüphane Müdürlüğüne: Acil sağlık durumum nedeniyle binadan çıkış izni arz ederim. Saygılarımla.” | `{"dialogue_text":"Dilekçeniz ve gerekçeniz uygun. Kapıyı açıyorum.","mood":"calm","door_locked":false,"call_police":false}` | Kapı açılır; polis çağrılmaz. |
+| **Kabul edilen dilekçe** | “Kütüphane Müdürlüğüne: Acil sağlık durumum nedeniyle binadan çıkış izni arz ederim. Saygılarımla.” | `{"dialogue":"Dilekçeniz uygun görünüyor. Çıkışa izin veriyorum."}` | Yerel kurallar kapıyı açar; Ollama yalnızca yanıtı yazar. |
+| **Eksik hitap** | “Acil sağlık durumum nedeniyle binadan çıkış izni istiyorum.” | `{"dialogue":"Dilekçenizi resmî hitapla yeniden yazın."}` | Kapı kapalı kalır; HUD/UI eksik koşulu bildirir. |
+| **Dilekçe değil** | “Üç mor bulut kantinde satranç oynuyor.” | `{"dialogue":"Bu bir çıkış dilekçesi değil."}` | Kapı kapalı kalır. |
 
 ## Hata yönetimi ve resiliency
 
@@ -185,10 +171,10 @@ LLM, oyun döngüsünün dış bağımlılığı olduğundan başarısızlığı
 - `UnityWebRequest` başarısız sonuç döndürürse uyarı kaydı üretir ve `GetFallbackResponse` döndürür.
 - İstek sırasında oluşan istisnalar `try-catch` ile yakalanır; arayüze güvenli varsayılan yanıt verilir.
 - Ollama dış JSON sarmalayıcısı boşsa, içerideki JSON bozuksa veya gerekli diyalog alanı yoksa parse hatası fallback ile karşılanır.
-- Fallback kapıyı kilitli (`door_locked = true`) ve polis çağrısını kapalı (`call_police = false`) tutar; oyuncu yine anlaşılır bir hata diyaloğu görür.
+- Ollama bağlantısı veya JSON yanıtı başarısız olsa da kapı kararı yerel doğrulayıcıya göre uygulanır; fallback yalnızca uygun NPC diyalog metnini sağlar.
 - İstek, yanıt tamamlanana kadar `Task.Yield` ile beklenir. Bu, Unity ana iş parçacığını senkron beklemeyle kilitlememek içindir.
 
-**Zaman aşımı notu:** Proje açıklamasında hedef 8 saniye olarak belirtilmiştir; mevcut `OllamaManager.cs` içindeki `UnityWebRequest.timeout` ise 30 saniyedir. Gerçek davranış kodda tanımlı bu değerdir. İstenen 8 saniye sınırına geçmek için istek zaman aşımı ayarı güncellenmelidir. `Task.Yield` asenkron bekleme sağlar, tek başına zaman aşımı süresi belirlemez.
+`OllamaManager` isteği varsayılan 8 saniyede zaman aşımına uğrar; bu değer bileşenin Inspector alanından değiştirilebilir. `Task.Yield` asenkron bekleme sağlar, tek başına zaman aşımı süresi belirlemez.
 
 ## Kurulum ve çalıştırma
 
@@ -215,14 +201,13 @@ Görseller depoya eklendikten sonra aşağıdaki yollar ilgili dosyalara göre g
 
 Breakpoint; NavMesh ile otonom hareketi, Raycast algılamasını, FSM tabanlı robot davranışını, olay güdümlü oyun sistemlerini ve yerel LLM ile diyalog prototipini bir araya getirir. Yerel model kullanımı, oyuncu girdisinin harici bir servise gönderilmeden işlenebilmesine imkân verir. Güvenli fallback sayesinde LLM erişimi olmadığında temel hata akışı tanımlıdır.
 
-Mevcut sınırlılıklar arasında model yanıt süresinin donanıma göre değişmesi, modelin her zaman geçerli JSON üretmemesi, sahne bağlantılarının Inspector yapılandırmasına bağlı olması ve ölçümlü beş başlangıç noktası test sonuçlarının henüz raporlanmamış olması yer alır. Depodaki LLM DTO şeması hedeflenen `dialogue_text`/`mood` sözleşmesinden farklıdır; model promptu, DTO ve UI/kapı tüketicileri tek bir sürümlü sözleşmede eşitlenmelidir. Zaman aşımı da belirtilen 8 saniye hedefiyle kodda bulunan 30 saniye değerinden biri olarak netleştirilmelidir.
+Mevcut sınırlılıklar arasında model yanıt süresinin donanıma göre değişmesi, modelin her zaman geçerli JSON üretmemesi, dilekçe doğrulamasının basit anahtar sözcük kurallarına dayanması ve ölçümlü beş başlangıç noktası test sonuçlarının henüz raporlanmamış olması yer alır. Dilekçe kuralları daha sonra anlamsal doğrulama ile genişletilebilir; 8 saniyelik Ollama zaman aşımı da Inspector’dan ayarlanabilir.
 
 Gelecek çalışmalar:
 
-- `NPCResponseData` şemasına `dialogue_text` ve `mood` alanlarını ekleyip JSON doğrulama ve eski yanıt uyumluluğu sağlamak.
-- Ollama model etiketi, yanıt sıcaklığı, token sınırı ve 8 saniyelik zaman aşımını Inspector veya yapılandırma dosyasından yönetmek.
+- Ollama yanıt sıcaklığı ve token sınırı gibi üretim ayarlarını Inspector veya yapılandırma dosyasından yönetmek.
 - Beş farklı başlangıç noktasında tekrarlı yol bulma testleri yapıp başarı oranı ve süre istatistiklerini raporlamak.
-- Robotun engelden kaçınma, görüş alanı, yeniden hedefleme ve hata durumları için FSM’yi genişletmek.
+- Robotun görüş alanı, alternatif rota ve dinamik engel durumları için FSM’yi genişletmek.
 - Unity ML-Agents ile davranış klonlama veya ödül tabanlı öğrenmeyi araştırmak; mevcut deterministik FSM’yi kıyaslama tabanı olarak korumak.
 - Diyalog kararlarını otomatik testlerle doğrulamak ve bağlantı, timeout, hatalı JSON senaryolarını CI sürecine eklemek.
 

@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using Breakpoint.Core;
 using Breakpoint.Robot;
 
@@ -44,6 +45,11 @@ public class PlayerController : MonoBehaviour
     void Start()
     {
         controller = GetComponent<CharacterController>();
+
+        // Robot yalnızca koridor sahnesinde bulunur; kapı sahnesinde aramak hata değildir.
+        if (SceneManager.GetActiveScene().name != "Level_Corridor")
+            return;
+
         if (robotController == null)
             robotController = FindFirstObjectByType<RobotController>();
 
@@ -111,7 +117,15 @@ public class PlayerController : MonoBehaviour
         Ray ray = new Ray(oyuncuKamerasi.position, oyuncuKamerasi.forward);
         if (Physics.Raycast(ray, out RaycastHit hit, komutMenzili))
         {
-            robotController.MoveTo(hit.point);
+            Debug.Log("Robot komutu hedefi: " + hit.collider.name, hit.collider);
+            if (hit.collider.CompareTag("Salter"))
+                robotController.MoveToSwitch(hit.collider.transform);
+            else
+                robotController.MoveTo(hit.point);
+        }
+        else
+        {
+            Debug.Log("Robot komutu için görüş doğrultusunda hedef bulunamadı.", this);
         }
     }
 }

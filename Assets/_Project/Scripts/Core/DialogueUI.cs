@@ -15,6 +15,9 @@ public class DialogueUI : MonoBehaviour
     [Header("Yapay Zeka Bağlantısı")]
     public OllamaManager ollamaManager;
 
+    [Header("Dilekçe Kuralları")]
+    [SerializeField] private PetitionRules petitionRules;
+
     private void Start()
     {
         if (sendButton != null)
@@ -86,13 +89,30 @@ public class DialogueUI : MonoBehaviour
         string mesaj = playerInputField.text;
         if (string.IsNullOrWhiteSpace(mesaj)) return;
 
+        bool dilekceKabulEdildi = PetitionValidator.Validate(mesaj, petitionRules, out string dilekceGeriBildirimi);
+
     // Çift tıklamayı önlemek için butonu geçici kapat
         if (sendButton != null) sendButton.interactable = false;
-        npcAnswerText.text = "Kütüphaneci dilekçeni okuyor...";
+        npcAnswerText.text = $"Kütüphaneci yanıtlıyor... (en fazla {ollamaManager.RequestTimeoutSeconds} sn)";
+
+        // Kapı kararı yerel doğrulayıcıdan gelir; Ollama yanıtını beklemez.
+        if (dilekceKabulEdildi)
+        {
+            var door = FindAnyObjectByType<DoorController>();
+            if (door != null)
+            {
+                door.UnlockAndOpenDoor();
+                GameEvents.RaiseDoorUnlocked();
+            }
+            else
+            {
+                Debug.LogWarning("DialogueUI: Sahne içinde DoorController bulunamadı; kapı açılamadı.", this);
+            }
+        }
 
     // Mesajı Ollama'ya gönder ve yanıt bekle
         var manager = ollamaManager;
-        var yanit = await manager.SendPromptToOllama(mesaj);
+        var yanit = await manager.SendPromptToOllama(mesaj, dilekceKabulEdildi);
 
         // Sahne değişmiş veya UI kapatılmış olabilirken async istek tamamlanabilir.
         if (this == null || npcAnswerText == null || playerInputField == null)
@@ -107,27 +127,28 @@ public class DialogueUI : MonoBehaviour
         }
 
     // Gelen yanıtı ekrana yazdır
-        npcAnswerText.text = string.IsNullOrEmpty(yanit.dialogue)
+        string npcYaniti = string.IsNullOrEmpty(yanit.dialogue)
             ? "Kütüphaneci cevap verdi ancak mesajı alınamadı."
             : yanit.dialogue;
+        npcYaniti = NormalizeQuotesForFont(npcYaniti);
+        if (yanit.usedFallback)
+            npcYaniti += "\n\nOllama yanıt veremedi; yerel yanıt gösteriliyor.";
 
-        if (!yanit.door_locked)
-        {
-        Debug.Log("Güvenlik ikna oldu, kapı açılıyor!");
-        var door = FindAnyObjectByType<DoorController>();
-        if (door != null)
-        {
-            door.UnlockAndOpenDoor();
-            GameEvents.RaiseDoorUnlocked(); // Kapı açılınca süre durur; sahne geçişi kapı trigger'ındadır.
-        }
-        else
-        {
-            Debug.LogWarning("DialogueUI: Sahne içinde DoorController bulunamadı; kapı açılamadı.", this);
-        }
-        }
+        npcAnswerText.text = dilekceKabulEdildi
+            ? npcYaniti
+            : $"{npcYaniti}\n\n{dilekceGeriBildirimi}";
 
     // Yeni mesaj yazılabilmesi için alanı temizle ve butonu aç
         playerInputField.text = "";
         if (sendButton != null) sendButton.interactable = true;
+    }
+
+    private static string NormalizeQuotesForFont(string text)
+    {
+        return text
+            .Replace("\u2018", "'")
+            .Replace("\u2019", "'")
+            .Replace("\u201C", "\"")
+            .Replace("\u201D", "\"");
     }
 }

@@ -1,0 +1,44 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: PetitionRules_Default
+  m_EditorClassIdentifier:
+  m_Script: {fileID: 11500000, guid: 7164f89337b14fe9be2ad02994ed8937, type: 3}
+  minimumLength: 40
+  formalAddressTerms:
+  - sayın
+  - sayin
+  - müdürlüğüne
+  - mudurlugune
+  reasonTerms:
+  - sağlık
+  - saglik
+  - sınav
+  - sinav
+  - proje
+  - ödev
+  - odev
+  - teslim
+  - nedeniyle
+  - sebebiyle
+  - acil
+  - ailevi
+  requestTerms:
+  - çıkış izni
+  - cikis izni
+  - izin talep
+  - izin istiyorum
+  - izin arz
+  - kapının açıl
+  - kapinin acil
+  - çıkmama izin
+  - cikmama izin
+  tooShortFeedback: Dilekçen çok kısa. Resmî hitap, mazeret ve açık bir çıkış talebi yaz.
+  missingFormalAddressFeedback: Dilekçeye "Sayın görevli" gibi resmî bir hitapla başla.
+  missingReasonFeedback: Binadan neden çıkman gerektiğini açıkça belirt.
+  missingRequestFeedback: Dilekçede çıkış iznini açıkça talep et.

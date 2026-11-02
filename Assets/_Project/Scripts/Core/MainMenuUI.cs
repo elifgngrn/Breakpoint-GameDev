@@ -11,6 +11,24 @@ public sealed class MainMenuUI : MonoBehaviour
     private Texture2D buttonTexture;
     private Texture2D buttonHoverTexture;
 
+    private void Awake()
+    {
+        Camera menuCamera = FindFirstObjectByType<Camera>();
+        if (menuCamera == null)
+        {
+            var cameraObject = new GameObject("Main Camera");
+            cameraObject.tag = "MainCamera";
+            menuCamera = cameraObject.AddComponent<Camera>();
+        }
+
+        menuCamera.gameObject.tag = "MainCamera";
+        menuCamera.enabled = true;
+        menuCamera.targetDisplay = 0;
+        menuCamera.clearFlags = CameraClearFlags.SolidColor;
+        menuCamera.backgroundColor = new Color(0.035f, 0.055f, 0.075f, 1f);
+        menuCamera.cullingMask = Physics.DefaultRaycastLayers;
+    }
+
     private void OnGUI()
     {
         EnsureStyles();
