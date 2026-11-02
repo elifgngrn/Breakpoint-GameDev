@@ -67,6 +67,8 @@ Bu ilkeler, mevcut kodun gözlemlenebilir yapısına göre açıklanmıştır; h
 
 Robot `NavMeshAgent` ile pişirilen NavMesh yüzeyinde yol bulur. `RobotController` hedefe `MoveTo` durumunda ilerler; yol hesabı tamamlanıp hedefe 0,5 birimden yakın olduğunda durur ve `Scan` durumuna geçer. Sensör başlangıcı `sensorPoint` atanmışsa o noktadır, değilse robotun konumudur. İleri yönde `sensorRange` (varsayılan 5 birim) uzunluğunda fiziksel Raycast atılır. Çarpılan nesnenin etiketi `Salter` ise robot `Interact` durumuna geçer; lazer bariyeri kapatılır ve `GameEvents` üzerinden lazer olayı yayınlanır.
 
+Koridor kontrolleri: `WASD` ile hareket, fareyle bakış, `Space` ile zıplama, `F` ile el feneri ve sol tıklamayla robot komutu verilir. Robotun şaltere ulaşması için kamerayı şaltere veya yakınındaki yürünebilir zemine çevirip sol tıklayın.
+
 ### Robot FSM akışı
 
 ```mermaid
@@ -84,7 +86,7 @@ graph TD
     E -->|Yeni hedef komutu| C
 ```
 
-> **Uygulama ayrıntısı:** Depodaki `RobotController` içinde `NavMeshAgent` alınması ve FSM/Raycast/etkileşim akışı vardır. Hedefe `SetDestination` çağrısını yapan komut bağlantısı sahne ya da başka bir bileşende kurulmalıdır. Projeye ait beş başlangıç noktasının ham ölçüm kayıtları depoda bulunmadığından aşağıdaki tablo sonuç iddiası değil, test raporu şablonudur.
+> **Uygulama ayrıntısı:** Oyuncunun sol tıklama komutu `PlayerController` üzerinden `RobotController.MoveTo` metoduna iletilir; böylece robotun durum makinesi hedefe ulaşma ve şalter tarama adımlarını yönetir. Projeye ait beş başlangıç noktasının ham ölçüm kayıtları depoda bulunmadığından aşağıdaki tablo sonuç iddiası değil, test raporu şablonudur.
 
 ### Beş başlangıç noktasından yol bulma ve şaltere erişim testi
 
