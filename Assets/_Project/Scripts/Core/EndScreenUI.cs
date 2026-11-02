@@ -6,50 +6,44 @@ public sealed class EndScreenUI : MonoBehaviour
     [SerializeField] private GameObject winPanel;
     [SerializeField] private GameObject losePanel;
 
+    private GameManager subscribedManager;
+
     private void Start()
     {
         Hide();
-        if (GameManager.Instance != null)
-            GameManager.Instance.StateChanged += OnStateChanged;
-    }
-
-    private void OnEnable()
-    {
-        // Sütlaç'ın yazdığı GameClock zamanı bitirince GameEvents üzerinden bu olay tetiklenir
-        GameEvents.OnTimeExpired += HandleTimeExpired;
-    }
-
-    private void OnDisable()
-    {
-        // Hafıza sızıntısını (memory leak) önlemek için aboneliği iptal ediyoruz
-        GameEvents.OnTimeExpired -= HandleTimeExpired;
+        subscribedManager = GameManager.Instance;
+        if (subscribedManager == null) return;
+        subscribedManager.StateChanged += OnStateChanged;
+        OnStateChanged(subscribedManager.State);
     }
 
     private void OnDestroy()
     {
-        if (GameManager.Instance != null)
-            GameManager.Instance.StateChanged -= OnStateChanged;
+        if (subscribedManager != null)
+            subscribedManager.StateChanged -= OnStateChanged;
     }
 
     private void OnStateChanged(GameState state)
     {
-        winPanel.SetActive(state == GameState.Won);
-        losePanel.SetActive(state == GameState.Lost);
-    }
-
-    private void HandleTimeExpired()
-    {
-        // Zaman dolduğunda kaybetme panelini ("Yakalandınız") aktif et
-        losePanel.SetActive(true);
-        Time.timeScale = 0f; // Oyunu dondur
+        if (winPanel != null) winPanel.SetActive(state == GameState.Won);
+        if (losePanel != null) losePanel.SetActive(state == GameState.Lost);
     }
 
     private void Hide()
     {
-        winPanel.SetActive(false);
-        losePanel.SetActive(false);
+        if (winPanel != null) winPanel.SetActive(false);
+        if (losePanel != null) losePanel.SetActive(false);
     }
 
-    public void OnRestartClicked() => GameManager.Instance.Restart();
-    public void OnMenuClicked()    => GameManager.Instance.QuitToMenu();
+    public void OnRestartClicked()
+    {
+        if (GameManager.Instance == null) return;
+        GameManager.Instance.Restart();
+    }
+
+    public void OnMenuClicked()
+    {
+        if (GameManager.Instance == null) return;
+        GameManager.Instance.QuitToMenu();
+    }
 }

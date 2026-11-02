@@ -8,7 +8,7 @@ public sealed class ClockHUD : MonoBehaviour
     private void Update()
     {
         var gm = GameManager.Instance;
-        if (gm != null && label != null)
-            label.text = gm.Clock.Formatted;
+        if (label == null || gm == null || gm.Clock == null) return;
+        label.text = gm.Clock.Formatted;
     }
 }

@@ -27,7 +27,12 @@ public class DialogueUI : MonoBehaviour
 
     public void DiyaloguBaslat()
     {
-        if (dialoguePanel != null) dialoguePanel.SetActive(true);
+        if (dialoguePanel == null)
+        {
+            Debug.LogError("DialogueUI: dialoguePanel Inspector'da atanmamış.", this);
+            return;
+        }
+        dialoguePanel.SetActive(true);
         GameEvents.RaiseDialogueStarted(); 
         
         // Oyuncunun hareketini ve kamerasını dondur, imleci serbest bırak
@@ -45,7 +50,12 @@ public class DialogueUI : MonoBehaviour
 
     public void DiyaloguBitir()
     {
-        if (dialoguePanel != null) dialoguePanel.SetActive(false);
+        if (dialoguePanel == null)
+        {
+            Debug.LogError("DialogueUI: dialoguePanel Inspector'da atanmamış.", this);
+            return;
+        }
+        dialoguePanel.SetActive(false);
         GameEvents.RaiseDialogueEnded(); 
         
         // Oyuncuyu serbest bırak, imleci kilitle
@@ -55,33 +65,37 @@ public class DialogueUI : MonoBehaviour
     }
 
     private async void MesajGonder()
-{
-    // Bileşenlerin atanıp atanmadığını kontrol et
-    if (playerInputField == null || npcAnswerText == null || ollamaManager == null) return;
+    {
+        // Gerekli bileşenler yoksa UI üzerinde güvenli şekilde dur.
+        if (playerInputField == null || npcAnswerText == null || ollamaManager == null)
+        {
+            Debug.LogError("DialogueUI: playerInputField, npcAnswerText ve ollamaManager atanmalı.", this);
+            return;
+        }
 
-    string mesaj = playerInputField.text;
-    if (string.IsNullOrWhiteSpace(mesaj)) return;
+        string mesaj = playerInputField.text;
+        if (string.IsNullOrWhiteSpace(mesaj)) return;
 
     // Çift tıklamayı önlemek için butonu geçici kapat
-    if (sendButton != null) sendButton.interactable = false;
-    npcAnswerText.text = "Kütüphaneci dilekçeni okuyor...";
+        if (sendButton != null) sendButton.interactable = false;
+        npcAnswerText.text = "Kütüphaneci dilekçeni okuyor...";
 
     // Mesajı Ollama'ya gönder ve yanıt bekle
-    var yanit = await ollamaManager.SendPromptToOllama(mesaj);
+        var yanit = await ollamaManager.SendPromptToOllama(mesaj);
 
     // Yanıtın null gelme ihtimaline karşı güvenlik kontrolü
-    if (yanit == null)
-    {
-        npcAnswerText.text = "Kütüphaneci şu an cevap veremiyor.";
-        if (sendButton != null) sendButton.interactable = true;
-        return;
-    }
+        if (yanit == null)
+        {
+            npcAnswerText.text = "Kütüphaneci şu an cevap veremiyor.";
+            if (sendButton != null) sendButton.interactable = true;
+            return;
+        }
 
     // Gelen yanıtı ekrana yazdır
-    npcAnswerText.text = yanit.dialogue;
+        npcAnswerText.text = yanit.dialogue;
 
-    if (!yanit.door_locked)
-    {
+        if (!yanit.door_locked)
+        {
         Debug.Log("Güvenlik ikna oldu, kapı açılıyor!");
         GameEvents.RaiseDoorUnlocked();   // sayaç durur
         
@@ -90,10 +104,10 @@ public class DialogueUI : MonoBehaviour
         {
             door.UnlockAndOpenDoor();
         }
-    }
+        }
 
     // Yeni mesaj yazılabilmesi için alanı temizle ve butonu aç
-    playerInputField.text = "";
-    if (sendButton != null) sendButton.interactable = true;
-}
+        playerInputField.text = "";
+        if (sendButton != null) sendButton.interactable = true;
+    }
 }

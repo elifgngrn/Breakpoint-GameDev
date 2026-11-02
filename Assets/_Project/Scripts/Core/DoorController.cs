@@ -1,10 +1,10 @@
 using System.Collections;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using Breakpoint.Core;
+
 namespace Core
 {
-    using UnityEngine;
-
     public class DoorController : MonoBehaviour
     {
         private AudioSource audioSource;
@@ -25,7 +25,8 @@ namespace Core
                 audioSource.PlayOneShot(unlockSound);
             }
 
-            // Burada kapının açılma animasyonu veya pozisyon değişimi yer alıyor olabilir
+            // Doğrudan Build Index (1) numaralı Level_Corridor sahnesine geçiş yap
+            SceneManager.LoadScene(1);
         }
     }
 }
