@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 using TMPro;
 using UnityEngine.UI;
@@ -218,15 +219,15 @@ public class DialogueUI : MonoBehaviour
         if (string.IsNullOrWhiteSpace(mesaj)) return;
         int requestVersion = ++responseVersion;
 
-        bool dilekceKabulEdildi = PetitionValidator.Validate(mesaj, petitionRules, out string dilekceGeriBildirimi);
+        bool yerelOnKontrolGecti = PetitionValidator.Validate(mesaj, petitionRules, out string dilekceGeriBildirimi);
 
     // Çift tıklamayı önlemek için butonu geçici kapat
         if (sendButton != null) sendButton.interactable = false;
         npcAnswerText.text = $"Güvenlik görevlisi düşünüyor... (en fazla {ollamaManager.RequestTimeoutSeconds} sn)";
 
-        // Keep the player free to interact with the petition UI while the local LLM responds.
+        // Yapılandırılmış LLM kararı yerel dilekçe kurallarıyla ayrıca doğrulanır.
         var manager = ollamaManager;
-        var yanit = await manager.SendPromptToOllama(mesaj, dilekceKabulEdildi);
+        var yanit = await manager.SendPromptToOllama(mesaj, yerelOnKontrolGecti, dilekceGeriBildirimi);
 
         // Sahne değişmiş veya UI kapatılmış olabilirken async istek tamamlanabilir.
         if (this == null || requestVersion != responseVersion || npcAnswerText == null || playerInputField == null)
@@ -244,33 +245,50 @@ public class DialogueUI : MonoBehaviour
         string npcYaniti = string.IsNullOrEmpty(yanit.dialogue)
             ? "Güvenlik görevlisi cevap verdi ancak mesajı alınamadı."
             : yanit.dialogue;
+        bool unlockRequested = !yanit.usedFallback && yanit.doorDecision == "unlock";
+        bool doorUnlocked = false;
+        if (unlockRequested && !yerelOnKontrolGecti)
+        {
+            Debug.LogWarning("DialogueUI: Ollama unlock kararı verdi ancak dilekçe yerel kuralları karşılamadığı için kapı kilitli kaldı.", this);
+            npcYaniti = "Dilekçe koşulları tamamlanmadığı için kapı kilitli kaldı.";
+        }
         npcYaniti = NormalizeQuotesForFont(npcYaniti);
         if (yanit.usedFallback)
             npcYaniti += "\n\nOllama yanıt veremedi; yerel yanıt gösteriliyor.";
 
-        npcAnswerText.text = dilekceKabulEdildi
-            ? npcYaniti
-            : $"{npcYaniti}\n\n{dilekceGeriBildirimi}";
-
-        // Apply the validated game decision only after the NPC response has been
-        // rendered, so a successful petition doesn't end the scene before its reply.
-        if (dilekceKabulEdildi)
+        if (unlockRequested && yerelOnKontrolGecti)
         {
             var door = FindAnyObjectByType<DoorController>();
             if (door != null)
             {
                 door.UnlockAndOpenDoor();
                 GameEvents.RaiseDoorUnlocked();
+                doorUnlocked = true;
             }
             else
             {
                 Debug.LogWarning("DialogueUI: Sahne içinde DoorController bulunamadı; kapı açılamadı.", this);
+                npcYaniti += "\n\nKapı mekanizmasına ulaşılamadı.";
             }
         }
+
+        npcAnswerText.text = !doorUnlocked && !yerelOnKontrolGecti && !yanit.usedFallback
+            ? $"{npcYaniti}\n\n{dilekceGeriBildirimi}"
+            : npcYaniti;
 
         // A rejected petition can be revised and sent again.
         playerInputField.text = "";
         if (sendButton != null) sendButton.interactable = true;
+
+        if (doorUnlocked)
+            StartCoroutine(CloseDialogueAfterUnlock());
+    }
+
+    private IEnumerator CloseDialogueAfterUnlock()
+    {
+        yield return new WaitForSecondsRealtime(2.5f);
+        if (this != null && dialoguePanel != null && dialoguePanel.activeSelf)
+            DiyaloguBitir();
     }
 
     private static string NormalizeQuotesForFont(string text)

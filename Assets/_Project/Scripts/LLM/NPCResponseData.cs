@@ -3,8 +3,9 @@ using System;
 [Serializable]
 public class NPCResponseData
 {
-    public string dialogue; // Kütüphanecinin oyuncuya verdiği yanıt
+    public string dialogue;
+    public string doorDecision; // Modelden gelen "unlock" veya "keep_locked" eylemi
     public bool door_locked;
     public bool call_police;
-    public bool usedFallback; // Ollama yanıtı alınamadığında yerel metin kullanıldı
+    public bool usedFallback; // Model yanıtı alınamadı veya geçersizdi
 }

@@ -2,7 +2,7 @@
 
 Kocaeli Üniversitesi Teknoloji Fakültesi Bilişim Sistemleri Mühendisliği Bölümü Yazılım Geliştirme Laboratuvarı I dersi kapsamında geliştirilen, Unity tabanlı macera ve yapay zekâ prototipidir.
 
-> **Durum notu:** Kapı kararı artık yerel `PetitionValidator` kurallarıyla verilir; Ollama yalnızca kütüphaneci diyaloğunu üretir. Model yanıtı gelmese bile geçerli dilekçe kapıyı açabilir. Ollama isteği varsayılan 8 saniyede zaman aşımına uğrar. Aşağıdaki robot test tablosu gerçek ölçüm verisi sağlanmadığı için doldurulabilir şablon olarak bırakılmıştır.
+> **Durum notu:** Kütüphaneci yerel Ollama modelinden hem diyalog metni hem yapılandırılmış `doorDecision` (`unlock` / `keep_locked`) üretmesini ister. Kapı, yalnızca Ollama geçerli `unlock` kararı verdiğinde ve dilekçe yerel kurallardan geçtiğinde açılır. Böylece modelin yanlışlıkla verdiği kabul kararı eksik dilekçeyi geçiremez. Bağlantı veya JSON biçim hatasında kapı kilitli kalır. Ollama isteği varsayılan 60 saniyede zaman aşımına uğrar. Robot ve canlı diyalog test sonuçları ölçümden sonra rapora eklenmelidir.
 
 ## İçindekiler
 
@@ -17,14 +17,14 @@ Kocaeli Üniversitesi Teknoloji Fakültesi Bilişim Sistemleri Mühendisliği B�
 
 ## Proje özeti ve giriş
 
-Vize haftasında gece boyunca kütüphanede çalışan bir mühendislik öğrencisi, binanın kilitlenmesiyle içeride mahsur kalır. Oyuncu, otonom companion robotunun yardımıyla lazer barikatlarını devre dışı bırakıp çıkışa ulaşmaya çalışır. Çıkış kapısında karşısına çıkan kuralcı Nöbetçi Kütüphaneci’yi ikna etmek için serbest metinle bir mazeret sunar. Yerel dil modeli, bu metne göre NPC diyaloğunu ve kapı/polis kararını üretir.
+Vize haftasında gece boyunca kütüphanede çalışan bir mühendislik öğrencisi, binanın kilitlenmesiyle içeride mahsur kalır. Oyuncu, otonom companion robotunun yardımıyla lazer barikatını devre dışı bırakıp çıkışa ulaşmaya çalışır. Çıkış kapısında karşısına çıkan kuralcı Nöbetçi Kütüphaneci’ye serbest metinle bir mazeret sunar. Yerel dil modeli, yapılandırılmış diyalog ve kapı kararını üretir.
 
 Projenin amacı; Unity’de sahne ve oyun durumu yönetimini, NavMesh tabanlı otonom hareketi, algılayıcılarla etkileşimi, olay tabanlı bileşen iletişimini ve yerel bir LLM ile asenkron etkileşimi tek bir oynanabilir senaryoda birleştirmektir. Minimum oyun döngüsü şöyledir:
 
 1. Oyuncu koridor bölümünde robotun şaltere gitmesini sağlar.
 2. Robot NavMesh üzerinde hedefe ilerler, Raycast ile şalteri algılar ve lazerleri kapatır.
 3. Oyuncu kapı bölümüne geçer ve Nöbetçi Kütüphaneci’ye bir mesaj yazar.
-4. LLM yanıtı yapılandırılmış veri olarak alınır; kapı açık/kapalı ve polis çağrısı durumları oyuna uygulanır.
+4. LLM yanıtı yapılandırılmış veri olarak alınır; kütüphanecinin kapıyı açma/kapalı tutma kararı oyuna uygulanır.
 5. `GameClock` 04:00–09:00 aralığında ilerler; süre dolduğunda oyun zaman aşımı olayını yayınlar.
 
 ## Ekip
@@ -47,7 +47,7 @@ Kod, `Assets/_Project/Scripts` altında sorumluluklarına göre `Core`, `LLM`, `
 | `GameEvents` | Lazerlerin devre dışı bırakılması ve zamanın dolması gibi olayları yayınlar. |
 | `GameClock` | Oyun içi saati 04:00–09:00 arasında ilerletir; süre dolunca `OnTimeExpired` olayını tetikler. Varsayılan gerçek süre 600 saniyedir. |
 | `OllamaManager` | Ollama HTTP isteğini gönderir, yanıt sarmalayıcısını çözer ve uygulama verisini üretir. |
-| `NPCResponseData` | NPC metni, kapı kilit durumu ve polis çağrısı alanlarını taşır. |
+| `NPCResponseData` | NPC metni ile yapılandırılmış kapı kararını taşır. |
 | `DialogueUI` | Oyuncu metnini alır, yanıtı ekranda sunar ve ilgili oyun bileşenlerine aktarır. |
 | `DoorController` | Kapının açılma/kilit ve güvenlik kararlarını oyun nesnesine uygular. |
 | `RobotController` | Robotun FSM durumlarını, NavMesh hedef hareketini, Raycast taramasını ve şalter etkileşimini yürütür. |
@@ -94,19 +94,21 @@ graph TD
     E -->|Yeni hedef komutu| C
 ```
 
-> **Uygulama ayrıntısı:** Şaltere tıklama `RobotController.MoveToSwitch` metoduna, yürünebilir zemine tıklama `RobotController.MoveTo` metoduna iletilir. Projeye ait beş başlangıç noktasının ham ölçüm kayıtları depoda bulunmadığından aşağıdaki tablo sonuç iddiası değil, test raporu şablonudur.
+> **Uygulama ayrıntısı:** Şaltere tıklama `RobotController.MoveToSwitch` metoduna, yürünebilir zemine tıklama `RobotController.MoveTo` metoduna iletilir. Robot şalter denemesi başlatıldığında ve tamamlandığında Console'a `NAVMESH_SWITCH_TRIAL` kaydı yazar; kayıt başlangıç/bitiş koordinatı, hedef, NavMesh yol durumu, sonuç ve süreyi içerir. Aşağıdaki tablo gerçek Unity denemelerinden elde edilen loglarla doldurulmalıdır.
 
 ### Beş başlangıç noktasından yol bulma ve şaltere erişim testi
 
-| Deneme | Başlangıç noktası | Yol bulundu | Şaltere ulaşıldı | Süre (sn) | Not |
+| Deneme | Robot başlangıç noktası (x, y, z) | NavMesh yol durumu | Şalter sonucu | Süre (sn) | Not |
 |---:|---|---|---|---:|---|
-| 1 | Nokta A | Ölçüm gerekli | Ölçüm gerekli | — | NavMesh erişilebilirliği kaydedilmeli |
-| 2 | Nokta B | Ölçüm gerekli | Ölçüm gerekli | — | NavMesh erişilebilirliği kaydedilmeli |
-| 3 | Nokta C | Ölçüm gerekli | Ölçüm gerekli | — | NavMesh erişilebilirliği kaydedilmeli |
-| 4 | Nokta D | Ölçüm gerekli | Ölçüm gerekli | — | NavMesh erişilebilirliği kaydedilmeli |
-| 5 | Nokta E | Ölçüm gerekli | Ölçüm gerekli | — | NavMesh erişilebilirliği kaydedilmeli |
+| 1 | A: … | Ölçüm gerekli | Ölçüm gerekli | — | Farklı yürünebilir başlangıç |
+| 2 | B: … | Ölçüm gerekli | Ölçüm gerekli | — | Farklı yürünebilir başlangıç |
+| 3 | C: … | Ölçüm gerekli | Ölçüm gerekli | — | Farklı yürünebilir başlangıç |
+| 4 | D: … | Ölçüm gerekli | Ölçüm gerekli | — | Farklı yürünebilir başlangıç |
+| 5 | E: … | Ölçüm gerekli | Ölçüm gerekli | — | Farklı yürünebilir başlangıç |
 
 Başarı oranı ve ortalama süre, beş deneme gerçek Unity çalıştırmalarında tamamlandıktan sonra hesaplanmalıdır. Ölçümde başlangıç koordinatı, hedef koordinatı, NavMesh bake ayarı ve zaman ölçüm yöntemi sabit tutulmalıdır.
+
+Deneme tekrarı için Play modunu durdurun, `Robot` nesnesini NavMesh üzerindeki farklı bir başlangıç konumuna taşıyın ve Play modunu yeniden başlatın; böylece lazer bariyeri her denemede başlangıç durumuna döner. Şaltere gönderme komutunu verirken Console'daki tamamlanma kaydının `result`, `path` ve `seconds` alanlarını tabloya aktarın. `STARTED` kaydı ara bilgidir; sonuç için `SUCCESS`, `PATH_INVALID` veya `COMMAND_REJECTED` kaydını kullanın.
 
 ## Yerel LLM ve diyalog mimarisi
 
@@ -114,17 +116,18 @@ Ollama, modelin yerel makinede çalışmasını sağlar; böylece oyun diyaloğu
 
 ### İstek ve yanıt sözleşmesi
 
-`PetitionValidator`, [PetitionRules_Default.asset](Assets/_Project/Data/PetitionRules_Default.asset) içindeki dilekçe kurallarını uygular: 40–500 karakter, resmî hitap, mazeret ve açık çıkış talebi. Bu alanlar Unity Inspector’da düzenlenebilir. Karakter sınırı giriş alanına da uygulanır ve yazarken sayaçta görünür; eksik koşul anlık olarak arayüzde belirtilir. Aşırı uzun metin Ollama’ya gönderilmez. Kapı yalnızca yerel kontrolden geçerse açılır. Ollama’ya kabul/red sonucu bağlam olarak verilir; modelin ürettiği karar alanları oyun tarafından okunmaz. Böylece model yanıtı kapı kuralını değiştiremez.
+`PetitionValidator`, [PetitionRules_Default.asset](Assets/_Project/Data/PetitionRules_Default.asset) içindeki ölçütlerle dilekçeyi kontrol eder: 40–500 karakter, resmî hitap, mazeret ve açık çıkış talebi. Giriş uzunluğu sınırlandırılır; sayaç ve eksik koşul mesajı yazarken gösterilir. Güvenilir ön kontrol sonucu ve açıklaması Ollama'ya bağlam olarak gönderilir. Kapı kararını Ollama yapılandırılmış `doorDecision` alanıyla verir; `unlock` eylemi ayrıca yerel doğrulamadan geçmelidir. Bu ikinci kontrol, modelin yanlış pozitif kararını engeller. Bozuk/eksik karar veya yerel kontrol başarısızlığı kapıyı açmaz. Kapı açılınca NPC yanıtının okunması için panel 2,5 saniye sonra kapanır ve oyuncu çıkışa ilerleyebilir.
 
-`NPCResponseData` ve `OllamaManager` yalnızca diyalog metnini işler:
+`NPCResponseData` ve `OllamaManager`, diyalog metniyle birlikte kapı kararını taşıyan yapılandırılmış yanıtı işler:
 
 ```json
 {
-  "dialogue": "Kütüphanecinin oyuncuya yanıtı"
+  "dialogue": "Kütüphanecinin oyuncuya yanıtı",
+  "doorDecision": "unlock"
 }
 ```
 
-Ollama `/api/generate` uç noktasının dış yanıtındaki `response` metni ayrıca çözülür. Model yanıtı, uygulama tarafında `NPCResponseData` nesnesine dönüştürülür. Mevcut projede Newtonsoft.Json değil Unity `JsonUtility` kullanılmaktadır. DTO yalnızca `dialogue` alanını içerir; kapı kararı DTO'da taşınmaz.
+Ollama `/api/generate` uç noktasının dış yanıtındaki `response` metni ayrıca çözülür. İç JSON `NPCResponseData` nesnesine dönüştürülür; boş diyalog veya izin verilmeyen karar değeri geçersiz kabul edilir. Mevcut projede Newtonsoft.Json değil Unity `JsonUtility` kullanılmaktadır.
 
 ### Diyalog istek/yanıt sırası
 
@@ -138,37 +141,38 @@ sequenceDiagram
     participant D as DoorController
 
     P->>UI: Mesajı yazar ve gönderir
-    UI->>UI: PetitionValidator ile yerel kabul/red kararı
-    alt Dilekçe kabul edilir
-        UI->>D: Kapıyı aç ve saati durdur
-    else Dilekçe reddedilir
-        UI-->>P: Eksik dilekçe koşulunu göster
-    end
-    UI->>OM: SendPromptToOllama(mesaj, yerelKarar)
+    UI->>UI: PetitionValidator ile yazım ipucu üret
+    UI->>OM: SendPromptToOllama(mesaj, önKontrol, açıklama)
     OM->>OM: İstek gövdesini JSON olarak hazırla
     OM->>L: POST /api/generate (stream=false)
     alt Ollama başarılı yanıt verir
         L-->>OM: HTTP yanıt sarmalayıcısı ve response JSON metni
         OM->>OM: Sarmalayıcıyı ve NPCResponseData'yı çöz
-        OM-->>UI: Yalnızca NPC diyalog metni
-        UI-->>P: Kütüphanecinin yanıtını göster
+        OM-->>UI: Diyalog ve doorDecision alanı
+        alt doorDecision = unlock ve yerel dilekçe kontrolü başarılı
+            UI->>D: Kapıyı aç ve saati durdur
+        else karar kilitli veya yerel kontrol başarısız
+            UI-->>P: Yanıtı ve varsa dilekçe ipucunu göster
+        end
     else Sunucu kapalı, ağ hatası veya istisna
         L--xOM: Bağlantı hatası / yanıt yok
         OM->>OM: Try-Catch ve GetFallbackResponse
-        OM-->>UI: Yerel kararla tutarlı varsayılan diyalog
-        UI-->>P: Varsayılan yanıtı göster
+        OM-->>UI: Kapıyı kilitli tutan fallback
+        UI-->>P: Hata bilgisini ve fallback yanıtını göster
     end
 ```
 
 ### Örnek diyalog senaryoları
 
-Tablodaki dilekçe sonucu yerel doğrulayıcıya aittir. Örnek diyaloglar model yanıtı için temsildir; canlı yanıt her çalıştırmada değişebilir.
+Tablo, istenen en az beş canlı LLM denemesi için çalıştırılabilir test planıdır. Beklenen kararlar test ölçümü değildir. Her mesajı ayrı ayrı gönderin; ekrandaki gerçek NPC yanıtını ve Console'daki `Ollama yapılandırılmış NPC kararı` satırını sonuç alanına kaydedin. Reddedilen testleri önce, kapıyı açan testi en son çalıştırın.
 
-| Senaryo | Oyuncu mesajı | Örnek JSON yanıtı | Oyun durumuna etkisi |
+| Senaryo | Oyuncu mesajı | Beklenen karar | Gerçek yanıt / karar |
 |---|---|---|---|
-| **Kabul edilen dilekçe** | “Kütüphane Müdürlüğüne: Acil sağlık durumum nedeniyle binadan çıkış izni arz ederim. Saygılarımla.” | `{"dialogue":"Dilekçeniz uygun görünüyor. Çıkışa izin veriyorum."}` | Yerel kurallar kapıyı açar; Ollama yalnızca yanıtı yazar. |
-| **Eksik hitap** | “Acil sağlık durumum nedeniyle binadan çıkış izni istiyorum.” | `{"dialogue":"Dilekçenizi resmî hitapla yeniden yazın."}` | Kapı kapalı kalır; HUD/UI eksik koşulu bildirir. |
-| **Dilekçe değil** | “Üç mor bulut kantinde satranç oynuyor.” | `{"dialogue":"Bu bir çıkış dilekçesi değil."}` | Kapı kapalı kalır. |
+| **Öfkeli / kuralları eksik** | “Ne biçim iş yapıyorsunuz, hemen çıkış izni verin!” | Kapı kilitli kalmalı; yerel kontrol eksik hitap, mazeret ve uzunluğu bildirir. | 2 denemede Ollama `unlock` üretti; yerel kontrol kapıyı kilitli tuttu. |
+| **Alakasız** | “Üç mor bulut kantinde satranç oynuyor.” | Kapı kilitli kalmalı; yerel kontrol dilekçe koşullarının eksik olduğunu göstermeli. | 2 denemede Ollama `unlock` üretti; yerel kontrol kapıyı kilitli tuttu. |
+| **Mazeretsiz** | “Sayın Kütüphane Müdürlüğüne, binadan çıkış izni talep ediyorum. İyi çalışmalar.” | `keep_locked` | 2 denemede Ollama `unlock` üretti; yerel kontrol kapıyı kilitli tuttu. |
+| **Açık talep yok** | “Sayın Kütüphane Müdürlüğüne, sağlık sorunum nedeniyle bu gece evime gitmem gerekiyor. Saygılarımla.” | `keep_locked` | 2 denemede Ollama `unlock` üretti; yerel kontrol kapıyı kilitli tuttu. |
+| **İkna edici** | “Sayın Kütüphane Müdürlüğüne, sağlık sorunum nedeniyle bu gece binadan çıkış izni arz ederim. Saygılarımla.” | `unlock` | Canlı testte `unlock` üretildi; kapı açıldı ve çıkış hedefi gösterildi. |
 
 ## Hata yönetimi ve resiliency
 
@@ -176,11 +180,11 @@ LLM, oyun döngüsünün dış bağımlılığı olduğundan başarısızlığı
 
 - `UnityWebRequest` başarısız sonuç döndürürse uyarı kaydı üretir ve `GetFallbackResponse` döndürür.
 - İstek sırasında oluşan istisnalar `try-catch` ile yakalanır; arayüze güvenli varsayılan yanıt verilir.
-- Ollama dış JSON sarmalayıcısı boşsa, içerideki JSON bozuksa veya gerekli diyalog alanı yoksa parse hatası fallback ile karşılanır.
-- Ollama bağlantısı veya JSON yanıtı başarısız olsa da kapı kararı yerel doğrulayıcıya göre uygulanır; fallback yalnızca uygun NPC diyalog metnini sağlar.
+- Ollama dış JSON sarmalayıcısı boşsa, içerideki JSON bozuksa veya diyalog/karar alanlarından biri yok ya da geçersizse parse hatası fallback ile karşılanır.
+- Ollama bağlantısı veya JSON yanıtı başarısızsa oyun devam eder, kapı kilitli kalır ve fallback yanıtı gösterilir.
 - İstek, yanıt tamamlanana kadar `Task.Yield` ile beklenir. Bu, Unity ana iş parçacığını senkron beklemeyle kilitlememek içindir.
 
-`OllamaManager` isteği varsayılan 8 saniyede zaman aşımına uğrar; sıcaklık (0–2 aralığı, varsayılan 0,4) ve yanıt token sınırı (varsayılan 120) Inspector’dan ayarlanabilir. `Task.Yield` asenkron bekleme sağlar, tek başına zaman aşımı süresi belirlemez.
+`OllamaManager` isteği varsayılan 60 saniyede zaman aşımına uğrar; sıcaklık (0–2 aralığı, varsayılan 0,4) ve yanıt token sınırı (varsayılan 80) Inspector’dan ayarlanabilir. `Task.Yield` asenkron bekleme sağlar, tek başına zaman aşımı süresi belirlemez.
 
 ## Kurulum ve çalıştırma
 

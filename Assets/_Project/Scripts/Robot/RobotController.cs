@@ -49,6 +49,9 @@ namespace Breakpoint.Robot
         private bool recoveryActive;
         private Vector3 recoveryDestination;
         private float recoveryDeadline;
+        private bool switchTrialActive;
+        private Vector3 switchTrialStartPosition;
+        private float switchTrialStartedAt;
 
         public RobotState CurrentState => currentState;
         public bool IsOperational { get; private set; } = true;
@@ -202,13 +205,30 @@ namespace Breakpoint.Robot
             if (switchTransform == null || !switchTransform.CompareTag("Salter"))
                 return false;
 
+            if (switchTrialActive)
+                CompleteSwitchTrial("CANCELLED_BY_NEW_COMMAND", commandedSwitch);
+
             commandedSwitch = switchTransform;
+            Vector3 trialStartPosition = transform.position;
             if (!SetDestination(switchTransform.position))
             {
+                string rejectedStart = trialStartPosition.ToString("F2");
+                string rejectedTarget = switchTransform.position.ToString("F2");
+                Debug.LogWarning(
+                    $"NAVMESH_SWITCH_TRIAL | result=COMMAND_REJECTED | start={rejectedStart} | target={rejectedTarget} | seconds=0.00",
+                    this);
                 commandedSwitch = null;
                 return false;
             }
 
+            switchTrialActive = true;
+            switchTrialStartPosition = trialStartPosition;
+            switchTrialStartedAt = Time.time;
+            string acceptedStart = switchTrialStartPosition.ToString("F2");
+            string acceptedTarget = switchTransform.position.ToString("F2");
+            Debug.Log(
+                $"NAVMESH_SWITCH_TRIAL | result=STARTED | start={acceptedStart} | target={acceptedTarget}",
+                this);
             return true;
         }
 
@@ -319,6 +339,7 @@ namespace Breakpoint.Robot
             {
                 if (!commandedSwitch.gameObject.activeInHierarchy)
                 {
+                    CompleteSwitchTrial("TARGET_DISABLED", commandedSwitch);
                     commandedSwitch = null;
                     FollowPlayer();
                     return;
@@ -361,6 +382,7 @@ namespace Breakpoint.Robot
             if (agent.pathStatus == NavMeshPathStatus.PathInvalid)
             {
                 Debug.LogWarning("RobotController: Hedef için geçerli NavMesh yolu oluşturulamadı.", this);
+                CompleteSwitchTrial("PATH_INVALID", commandedSwitch);
                 commandedSwitch = null;
                 FollowPlayer();
                 return;
@@ -478,8 +500,6 @@ namespace Breakpoint.Robot
 
         private void ActivateSwitch(Transform switchTransform)
         {
-            commandedSwitch = null;
-
             bool barrierWasActive = lazerBariyeri != null && lazerBariyeri.activeSelf;
 
             if (lazerBariyeri != null)
@@ -500,10 +520,31 @@ namespace Breakpoint.Robot
             if (switchTransform != null)
                 Debug.Log("Robot şalterle etkileşime geçti: " + switchTransform.name, this);
 
+            string trialResult = lazerBariyeri == null
+                ? "SWITCH_REACHED_NO_BARRIER_REFERENCE"
+                : barrierWasActive ? "SUCCESS" : "SWITCH_REACHED_BARRIER_ALREADY_OFF";
+            CompleteSwitchTrial(trialResult, switchTransform);
+            commandedSwitch = null;
+
             if (barrierWasActive && switchTransform != null)
                 PlaySwitchFeedback(switchTransform);
 
             FollowPlayer();
+        }
+
+        private void CompleteSwitchTrial(string result, Transform switchTransform)
+        {
+            if (!switchTrialActive)
+                return;
+
+            string targetPosition = switchTransform != null ? switchTransform.position.ToString("F2") : "unavailable";
+            string startPosition = switchTrialStartPosition.ToString("F2");
+            string endPosition = transform.position.ToString("F2");
+            float elapsedSeconds = Time.time - switchTrialStartedAt;
+            Debug.Log(
+                $"NAVMESH_SWITCH_TRIAL | result={result} | start={startPosition} | end={endPosition} | target={targetPosition} | path={agent.pathStatus} | seconds={elapsedSeconds:F2}",
+                this);
+            switchTrialActive = false;
         }
 
         private void PlaySwitchFeedback(Transform switchTransform)
