@@ -1,0 +1,6 @@
+#!/bin/sh
+if git diff --cached -U0 -- Assets ProjectSettings Packages | grep -E '^\+(<<<<<<<|=======$|>>>>>>>)' > /dev/null; then
+  echo "HATA: Merge cakisma isaretleri var. Once cozun, sonra commit atin."
+  exit 1
+fi
+exit 0
