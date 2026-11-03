@@ -1,6 +1,7 @@
 using System.Collections;
 using UnityEngine;
 using UnityEngine.AI;
+using UnityEngine.InputSystem;
 using Breakpoint.Core;
 
 namespace Breakpoint.Robot
@@ -43,6 +44,11 @@ namespace Breakpoint.Robot
         private bool dependenciesValid;
         private AudioSource feedbackAudio;
         private AudioClip switchChime;
+        private Vector3 lastFollowDestination;
+        private bool hasFollowDestination;
+        private bool recoveryActive;
+        private Vector3 recoveryDestination;
+        private float recoveryDeadline;
 
         public RobotState CurrentState => currentState;
 
@@ -90,10 +96,14 @@ namespace Breakpoint.Robot
 
         private void OnDisable()
         {
-            if (behaviorCoroutine == null) return;
+            if (behaviorCoroutine != null)
+            {
+                StopCoroutine(behaviorCoroutine);
+                behaviorCoroutine = null;
+            }
 
-            StopCoroutine(behaviorCoroutine);
-            behaviorCoroutine = null;
+            if (Gamepad.current != null)
+                Gamepad.current.SetMotorSpeeds(0f, 0f);
         }
 
         private IEnumerator BehaviorLoop()
@@ -126,21 +136,26 @@ namespace Breakpoint.Robot
         }
 
         /// <summary>Robotu belirli bir dünya hedefine yöneltir.</summary>
-        public void MoveTo(Vector3 destination)
+        public bool MoveTo(Vector3 destination)
         {
             commandedSwitch = null;
-            SetDestination(destination);
+            return SetDestination(destination);
         }
 
         /// <summary>Oyuncunun tıkladığı şaltere robotu gönderir ve yaklaşınca etkileştirir.</summary>
-        public void MoveToSwitch(Transform switchTransform)
+        public bool MoveToSwitch(Transform switchTransform)
         {
             if (switchTransform == null || !switchTransform.CompareTag("Salter"))
-                return;
+                return false;
 
             commandedSwitch = switchTransform;
             if (!SetDestination(switchTransform.position))
+            {
                 commandedSwitch = null;
+                return false;
+            }
+
+            return true;
         }
 
         private bool SetDestination(Vector3 destination)
@@ -154,9 +169,24 @@ namespace Breakpoint.Robot
                 return false;
             }
 
-            if (!NavMesh.SamplePosition(destination, out NavMeshHit navHit, 2f, agent.areaMask))
+            // Raycast hedefi duvar yüzeyinde/yüksekte kalabilir. Y konumunu robotun NavMesh
+            // yüksekliğine indir ve en yakın yürünebilir noktayı kademeli olarak ara.
+            destination.y = agent.nextPosition.y;
+            NavMeshHit navHit = default;
+            bool foundNavMesh = false;
+            float[] sampleRadii = { 2f, 4f, 8f, 12f };
+            foreach (float sampleRadius in sampleRadii)
             {
-                Debug.LogWarning("RobotController: Hedefin yakınında yürünebilir NavMesh bulunamadı.", this);
+                if (!NavMesh.SamplePosition(destination, out navHit, sampleRadius, agent.areaMask))
+                    continue;
+
+                foundNavMesh = true;
+                break;
+            }
+
+            if (!foundNavMesh)
+            {
+                Debug.LogWarning("RobotController: Hedefin 12 birim yakınında yürünebilir NavMesh bulunamadı. Hedef: " + destination, this);
                 return false;
             }
             destination = navHit.position;
@@ -179,12 +209,30 @@ namespace Breakpoint.Robot
                 return;
 
             currentState = RobotState.FollowPlayer;
+            hasFollowDestination = false;
             if (agent != null)
                 agent.isStopped = false;
         }
 
         private void UpdateFollowState()
         {
+            if (recoveryActive)
+            {
+                if (agent.pathPending)
+                    return;
+
+                if (Vector3.Distance(transform.position, recoveryDestination) <= 0.6f || Time.time >= recoveryDeadline)
+                {
+                    recoveryActive = false;
+                    hasFollowDestination = false;
+                    GameEvents.RaiseNotification("Robot yeniden oyuncuyu takip ediyor.");
+                }
+                else
+                {
+                    return;
+                }
+            }
+
             float distanceToPlayer = Vector3.Distance(transform.position, playerTransform.position);
             if (distanceToPlayer <= agent.stoppingDistance)
             {
@@ -195,8 +243,17 @@ namespace Breakpoint.Robot
 
             agent.isStopped = false;
 
-            if (!agent.pathPending)
-                agent.SetDestination(playerTransform.position);
+            bool playerMovedEnough = !hasFollowDestination ||
+                                     (playerTransform.position - lastFollowDestination).sqrMagnitude >= 0.25f;
+            bool pathNeedsRepair = !agent.hasPath || agent.pathStatus == NavMeshPathStatus.PathInvalid;
+            if (!agent.pathPending && (playerMovedEnough || pathNeedsRepair))
+            {
+                if (agent.SetDestination(playerTransform.position))
+                {
+                    lastFollowDestination = playerTransform.position;
+                    hasFollowDestination = true;
+                }
+            }
 
             if (!agent.pathPending && distanceToPlayer > agent.stoppingDistance && agent.velocity.sqrMagnitude < 0.1f)
                 ReportFrontObstacle();
@@ -291,7 +348,63 @@ namespace Breakpoint.Robot
                     return;
 
                 Debug.LogWarning("Robot takıldı! Engel: " + hit.collider.name, this);
+                TryRecoverAroundObstacle(hit.normal);
             }
+        }
+
+        private void TryRecoverAroundObstacle(Vector3 obstacleNormal)
+        {
+            if (Time.time < recoveryDeadline || !agent.isOnNavMesh)
+                return;
+
+            Vector3 towardPlayer = playerTransform.position - transform.position;
+            towardPlayer.y = 0f;
+            if (towardPlayer.sqrMagnitude < 0.01f)
+                return;
+            towardPlayer.Normalize();
+
+            Vector3 side = Vector3.Cross(Vector3.up, obstacleNormal).normalized;
+            if (side.sqrMagnitude < 0.01f)
+                side = Vector3.Cross(Vector3.up, towardPlayer).normalized;
+
+            NavMeshPath bestPath = null;
+            Vector3 bestDestination = Vector3.zero;
+            float bestPathLength = float.PositiveInfinity;
+
+            for (int direction = -1; direction <= 1; direction += 2)
+            {
+                Vector3 probe = transform.position + (towardPlayer + side * direction).normalized * 2.5f;
+                if (!NavMesh.SamplePosition(probe, out NavMeshHit navHit, 1.5f, agent.areaMask))
+                    continue;
+
+                NavMeshPath candidatePath = new NavMeshPath();
+                if (!NavMesh.CalculatePath(agent.nextPosition, navHit.position, agent.areaMask, candidatePath) ||
+                    candidatePath.status != NavMeshPathStatus.PathComplete)
+                    continue;
+
+                float pathLength = 0f;
+                Vector3[] corners = candidatePath.corners;
+                for (int i = 1; i < corners.Length; i++)
+                    pathLength += Vector3.Distance(corners[i - 1], corners[i]);
+
+                if (pathLength < bestPathLength)
+                {
+                    bestPathLength = pathLength;
+                    bestPath = candidatePath;
+                    bestDestination = navHit.position;
+                }
+            }
+
+            if (bestPath == null || !agent.SetDestination(bestDestination))
+                return;
+
+            recoveryDestination = bestDestination;
+            recoveryDeadline = Time.time + 3.5f;
+            recoveryActive = true;
+            hasFollowDestination = true;
+            lastFollowDestination = playerTransform.position;
+            Debug.Log("Robot engelin yanından alternatif rota deniyor.", this);
+            GameEvents.RaiseNotification("Robot engeli dolaşmak için yan rota deniyor.");
         }
 
         private void ScanForSwitch()
@@ -344,6 +457,13 @@ namespace Breakpoint.Robot
             if (switchChime != null && feedbackAudio != null)
                 feedbackAudio.PlayOneShot(switchChime, 0.65f);
 
+            if (Gamepad.current != null && PlayerPrefs.GetInt("Breakpoint.GamepadRumble", 1) == 1)
+            {
+                Gamepad gamepad = Gamepad.current;
+                gamepad.SetMotorSpeeds(0.25f, 0.55f);
+                StartCoroutine(StopGamepadRumble(gamepad, 0.28f));
+            }
+
             Renderer[] renderers = switchTransform.GetComponentsInChildren<Renderer>();
             foreach (Renderer switchRenderer in renderers)
             {
@@ -362,6 +482,13 @@ namespace Breakpoint.Robot
             pulseLight.intensity = 3f;
             Destroy(pulseObject, 0.45f);
             StartCoroutine(ClearSwitchFlash(renderers, 0.45f));
+        }
+
+        private static IEnumerator StopGamepadRumble(Gamepad gamepad, float delay)
+        {
+            yield return new WaitForSecondsRealtime(delay);
+            if (gamepad != null && gamepad.added)
+                gamepad.SetMotorSpeeds(0f, 0f);
         }
 
         private IEnumerator ClearSwitchFlash(Renderer[] renderers, float duration)

@@ -19,6 +19,12 @@ namespace Breakpoint.Core
                 return false;
             }
 
+            if (petition.Length > rules.MaximumLength)
+            {
+                feedback = rules.TooLongFeedback;
+                return false;
+            }
+
             string normalized = petition.ToLowerInvariant();
             if (!ContainsAny(normalized, rules.FormalAddressTerms))
             {

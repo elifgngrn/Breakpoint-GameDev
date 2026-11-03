@@ -9,6 +9,30 @@ public class PlayerController : MonoBehaviour
 {
     [Header("Hareket Ayarları")]
     public float yürümeHizi = 5f;
+    [SerializeField, Min(1f)] private float kosmaCarpani = 1.6f;
+    [SerializeField, Min(1f)] private float maksimumDayaniklilik = 5f;
+    [SerializeField, Min(0.1f)] private float kosmaEnerjiTuketimi = 1f;
+    [SerializeField, Min(0.1f)] private float dinlenmeEnerjiDolumu = 0.8f;
+    [SerializeField, Min(0f)] private float enerjiDolumGecikmesi = 0.75f;
+    [SerializeField, Min(0.1f)] private float hizlanma = 14f;
+    [SerializeField, Min(0.1f)] private float yavaslama = 20f;
+    [SerializeField, Min(0.1f)] private float havadaHizlanma = 4f;
+    [SerializeField, Min(0f)] private float ziplamaTamponSuresi = 0.15f;
+    [SerializeField, Min(0f)] private float kenarZiplamaSuresi = 0.12f;
+    [SerializeField] private AudioClip[] adimSesleri;
+    [SerializeField, Min(0.05f)] private float yurumeAdimAraligi = 0.5f;
+    [SerializeField, Min(0.05f)] private float kosmaAdimAraligi = 0.32f;
+    [SerializeField, Range(0f, 1f)] private float adimSesSeviyesi = 0.65f;
+    private float currentStamina;
+    private float jumpBufferTimer = -1f;
+    private float coyoteTimer = -1f;
+    private float adimZamani;
+    private AudioSource adimAudioSource;
+    private Vector3 yatayHiz;
+    private GUIStyle staminaTextStyle;
+    private float lastSprintTime;
+    private bool sprintLockedOut;
+    private bool staminaWarningSent;
     public float ziplamaGucu = 2f;
     public float yercekimi = -15f;
     private CharacterController controller;
@@ -18,6 +42,10 @@ public class PlayerController : MonoBehaviour
     public Transform oyuncuKamerasi;
     public float fareHassasiyeti = 2f;
     public bool tersDikeyBakış;
+    [SerializeField, Range(50f, 100f)] private float normalGorusAcisi = 60f;
+    [SerializeField, Range(50f, 100f)] private float kosmaGorusAcisi = 68f;
+    [SerializeField, Min(0.1f)] private float gorusGecisHizi = 8f;
+    private Camera playerCamera;
     private float xRotasyonu = 0f;
     private GUIStyle targetHintStyle;
 
@@ -48,8 +76,20 @@ public class PlayerController : MonoBehaviour
     void Start()
     {
         controller = GetComponent<CharacterController>();
+        adimAudioSource = GetComponent<AudioSource>();
+        if (adimAudioSource == null && adimSesleri != null && adimSesleri.Length > 0)
+            adimAudioSource = gameObject.AddComponent<AudioSource>();
+        if (adimAudioSource != null)
+            adimAudioSource.playOnAwake = false;
+        if (oyuncuKamerasi != null)
+        {
+            playerCamera = oyuncuKamerasi.GetComponent<Camera>();
+            if (playerCamera != null)
+                normalGorusAcisi = playerCamera.fieldOfView;
+        }
         fareHassasiyeti = PlayerPrefs.GetFloat("Breakpoint.MouseSensitivity", fareHassasiyeti);
         tersDikeyBakış = PlayerPrefs.GetInt("Breakpoint.InvertLookY", 0) == 1;
+        currentStamina = maksimumDayaniklilik;
 
         // Robot yalnızca koridor sahnesinde bulunur; kapı sahnesinde aramak hata değildir.
         if (SceneManager.GetActiveScene().name != "Level_Corridor")
@@ -79,7 +119,8 @@ public class PlayerController : MonoBehaviour
 
         xRotasyonu += tersDikeyBakış ? fareY : -fareY;
         xRotasyonu = Mathf.Clamp(xRotasyonu, -90f, 90f);
-        oyuncuKamerasi.localRotation = Quaternion.Euler(xRotasyonu, 0f, 0f);
+        if (oyuncuKamerasi != null)
+            oyuncuKamerasi.localRotation = Quaternion.Euler(xRotasyonu, 0f, 0f);
         transform.Rotate(Vector3.up * fareX);
 
         // 2. WASD YÜRÜME
@@ -92,21 +133,71 @@ public class PlayerController : MonoBehaviour
             (keyboard.wKey.isPressed || keyboard.upArrowKey.isPressed ? 1f : 0f) -
             (keyboard.sKey.isPressed || keyboard.downArrowKey.isPressed ? 1f : 0f)) + stickMove.y;
         Vector2 moveInput = Vector2.ClampMagnitude(new Vector2(x, z), 1f);
+        bool sprintRequested = (keyboard != null && keyboard.leftShiftKey.isPressed) ||
+                               (Gamepad.current != null && Gamepad.current.leftStickButton.isPressed);
+        if (sprintLockedOut && currentStamina >= maksimumDayaniklilik * 0.25f)
+        {
+            sprintLockedOut = false;
+            staminaWarningSent = false;
+        }
+
+        bool sprinting = sprintRequested && !sprintLockedOut && currentStamina > 0f && moveInput.sqrMagnitude > 0.01f;
+        if (sprinting)
+        {
+            currentStamina = Mathf.Max(0f, currentStamina - kosmaEnerjiTuketimi * Time.deltaTime);
+            lastSprintTime = Time.time;
+            if (currentStamina <= 0f)
+            {
+                sprintLockedOut = true;
+                if (!staminaWarningSent)
+                {
+                    GameEvents.RaiseNotification("Dayanıklılık bitti. Koşmak için biraz dinlen.");
+                    staminaWarningSent = true;
+                }
+            }
+        }
+        else if (Time.time >= lastSprintTime + enerjiDolumGecikmesi)
+            currentStamina = Mathf.Min(maksimumDayaniklilik, currentStamina + dinlenmeEnerjiDolumu * Time.deltaTime);
+        float currentMoveSpeed = yürümeHizi * (sprinting ? kosmaCarpani : 1f);
+
+        if (playerCamera != null)
+        {
+            float targetFov = sprinting ? kosmaGorusAcisi : normalGorusAcisi;
+            playerCamera.fieldOfView = Mathf.Lerp(playerCamera.fieldOfView, targetFov, gorusGecisHizi * Time.deltaTime);
+        }
         
-        Vector3 hareket = transform.right * moveInput.x + transform.forward * moveInput.y;
-        controller.Move(hareket * yürümeHizi * Time.deltaTime);
+        Vector3 moveDirection = transform.right * moveInput.x + transform.forward * moveInput.y;
+        Vector3 targetVelocity = moveDirection * currentMoveSpeed;
+        float speedChange = moveInput.sqrMagnitude > 0.01f
+            ? (controller.isGrounded ? hizlanma : havadaHizlanma)
+            : yavaslama;
+        yatayHiz = Vector3.MoveTowards(yatayHiz, targetVelocity, speedChange * Time.deltaTime);
+        controller.Move(yatayHiz * Time.deltaTime);
+        GuncelleAdimSesi(sprinting);
 
         // 3. ZIPLAMA VE YERÇEKİMİ
-        if (controller.isGrounded && dususHizi.y < 0)
+        bool grounded = controller.isGrounded;
+        if (grounded)
         {
-            dususHizi.y = -2f; // Yerdeyken aşağı düşmeyi durdur
+            coyoteTimer = kenarZiplamaSuresi;
+            if (dususHizi.y < 0)
+                dususHizi.y = -2f; // Yerdeyken aşağı düşmeyi durdur
         }
+        else
+            coyoteTimer -= Time.deltaTime;
 
         bool jumpPressed = (keyboard != null && keyboard.spaceKey.wasPressedThisFrame) ||
                            (Gamepad.current != null && Gamepad.current.buttonSouth.wasPressedThisFrame);
-        if (jumpPressed && controller.isGrounded)
+        if (jumpPressed)
+            jumpBufferTimer = ziplamaTamponSuresi;
+        else
+            jumpBufferTimer -= Time.deltaTime;
+
+        if (jumpBufferTimer >= 0f && coyoteTimer >= 0f)
         {
             dususHizi.y = Mathf.Sqrt(ziplamaGucu * -2f * yercekimi); // Zıpla
+            jumpBufferTimer = -1f;
+            coyoteTimer = -1f;
         }
 
         dususHizi.y += yercekimi * Time.deltaTime;
@@ -129,6 +220,29 @@ public class PlayerController : MonoBehaviour
         }
     }
 
+    private void GuncelleAdimSesi(bool sprinting)
+    {
+        if (adimSesleri == null || adimSesleri.Length == 0 || adimAudioSource == null)
+            return;
+
+        adimZamani -= Time.deltaTime;
+        bool walkingOnGround = controller.isGrounded && yatayHiz.sqrMagnitude > 0.1f;
+        if (!walkingOnGround)
+        {
+            adimZamani = 0f;
+            return;
+        }
+
+        if (adimZamani > 0f)
+            return;
+
+        AudioClip clip = adimSesleri[Random.Range(0, adimSesleri.Length)];
+        if (clip != null)
+            adimAudioSource.PlayOneShot(clip, adimSesSeviyesi);
+
+        adimZamani = sprinting ? kosmaAdimAraligi : yurumeAdimAraligi;
+    }
+
     private void RobotaKomutGonder()
     {
         if (robotController == null || oyuncuKamerasi == null)
@@ -140,13 +254,17 @@ public class PlayerController : MonoBehaviour
             Debug.Log("Robot komutu hedefi: " + hit.collider.name, hit.collider);
             if (hit.collider.CompareTag("Salter"))
             {
-                robotController.MoveToSwitch(hit.collider.transform);
-                GameEvents.RaiseNotification("Robot şaltere gönderildi.");
+                bool accepted = robotController.MoveToSwitch(hit.collider.transform);
+                GameEvents.RaiseNotification(accepted
+                    ? "Robot şaltere gönderildi."
+                    : "Robot şaltere ulaşamıyor; NavMesh bağlantısını kontrol et.");
             }
             else
             {
-                robotController.MoveTo(hit.point);
-                GameEvents.RaiseNotification("Robot seçilen noktaya ilerliyor.");
+                bool accepted = robotController.MoveTo(hit.point);
+                GameEvents.RaiseNotification(accepted
+                    ? "Robot seçilen noktaya ilerliyor."
+                    : "Bu hedefin yakınında yürünebilir zemin yok. Zemine nişan alıp tekrar dene.");
             }
         }
         else
@@ -171,6 +289,8 @@ public class PlayerController : MonoBehaviour
             aimingAtSwitch = hit.collider.CompareTag("Salter");
         }
 
+        DrawStaminaBar();
+
         float centerX = Screen.width * 0.5f;
         float centerY = Screen.height * 0.5f;
         Color reticleColor = aimingAtSwitch ? new Color(0.2f, 1f, 0.45f) : Color.white;
@@ -193,5 +313,32 @@ public class PlayerController : MonoBehaviour
             targetHintStyle.normal.textColor = reticleColor;
             GUI.Label(new Rect(centerX - 170f, centerY + 18f, 340f, 28f), "ŞALTER  ·  SOL TIK / RB: ROBOTU GÖNDER", targetHintStyle);
         }
+    }
+
+    private void DrawStaminaBar()
+    {
+        bool sprintHeld = (Keyboard.current != null && Keyboard.current.leftShiftKey.isPressed) ||
+                          (Gamepad.current != null && Gamepad.current.leftStickButton.isPressed);
+        if (currentStamina >= maksimumDayaniklilik && !sprintHeld)
+            return;
+
+        const float width = 180f;
+        const float height = 8f;
+        float x = (Screen.width - width) * 0.5f;
+        float y = Screen.height * 0.72f;
+        GUI.color = new Color(0.04f, 0.07f, 0.08f, 0.8f);
+        GUI.DrawTexture(new Rect(x, y, width, height), Texture2D.whiteTexture);
+        GUI.color = currentStamina <= 1f ? new Color(1f, 0.35f, 0.2f) : new Color(0.25f, 0.85f, 0.7f);
+        GUI.DrawTexture(new Rect(x, y, width * Mathf.Clamp01(currentStamina / maksimumDayaniklilik), height), Texture2D.whiteTexture);
+        GUI.color = Color.white;
+
+        staminaTextStyle ??= new GUIStyle(GUI.skin.label)
+        {
+            alignment = TextAnchor.MiddleCenter,
+            fontSize = 11,
+            normal = { textColor = new Color(0.82f, 0.9f, 0.88f) }
+        };
+        GUI.Label(new Rect(x, y + height + 3f, width, 18f),
+            $"ENERJİ  {currentStamina:0.0} / {maksimumDayaniklilik:0.0}", staminaTextStyle);
     }
 }

@@ -4,6 +4,7 @@ using UnityEngine.InputSystem;
 /// <summary>Başlangıç menüsünü çizer ve GameManager akışına bağlar.</summary>
 public sealed class MainMenuUI : MonoBehaviour
 {
+    private const string BestEscapeTimeKey = "Breakpoint.BestEscapeTimeSeconds";
     private GUIStyle panelStyle;
     private GUIStyle titleStyle;
     private GUIStyle subtitleStyle;
@@ -122,6 +123,13 @@ public sealed class MainMenuUI : MonoBehaviour
         }
 
         GUILayout.FlexibleSpace();
+        int bestEscapeTime = PlayerPrefs.GetInt(BestEscapeTimeKey, int.MaxValue);
+        if (bestEscapeTime != int.MaxValue)
+        {
+            string bestFormatted = $"{bestEscapeTime / 60:00}:{bestEscapeTime % 60:00}";
+            GUILayout.Label($"EN İYİ KAÇIŞ  {bestFormatted}", subtitleStyle, GUILayout.Height(24f));
+            GUILayout.Space(6f);
+        }
         GUILayout.Label("Gece 04:00 — çıkış için robotun yardımına ihtiyacın var.", subtitleStyle, GUILayout.Height(24f));
         GUILayout.EndArea();
     }

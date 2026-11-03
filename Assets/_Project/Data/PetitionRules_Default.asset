@@ -10,6 +10,7 @@ MonoBehaviour:
   m_EditorClassIdentifier:
   m_Script: {fileID: 11500000, guid: 7164f89337b14fe9be2ad02994ed8937, type: 3}
   minimumLength: 40
+  maximumLength: 500
   formalAddressTerms:
   - sayın
   - sayin
@@ -39,6 +40,7 @@ MonoBehaviour:
   - çıkmama izin
   - cikmama izin
   tooShortFeedback: Dilekçen çok kısa. Resmî hitap, mazeret ve açık bir çıkış talebi yaz.
+  tooLongFeedback: Dilekçe çok uzun. En fazla 500 karakter kullan.
   missingFormalAddressFeedback: Dilekçeye "Sayın görevli" gibi resmî bir hitapla başla.
   missingReasonFeedback: Binadan neden çıkman gerektiğini açıkça belirt.
   missingRequestFeedback: Dilekçede çıkış iznini açıkça talep et.

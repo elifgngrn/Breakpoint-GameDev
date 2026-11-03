@@ -11,6 +11,7 @@ public class EndScreenUI : MonoBehaviour
     [SerializeField] private float fadeDuration = 0.5f; // Geçiş süresi
     private int selectedEndOption;
     private GUIStyle resultStyle;
+    private bool newRecordAchieved;
 
     private void Update()
     {
@@ -82,6 +83,7 @@ public class EndScreenUI : MonoBehaviour
         int bestTime = PlayerPrefs.GetInt(BestEscapeTimeKey, int.MaxValue);
         if (currentTime < bestTime)
         {
+            newRecordAchieved = true;
             PlayerPrefs.SetInt(BestEscapeTimeKey, currentTime);
             PlayerPrefs.Save();
         }
@@ -115,11 +117,14 @@ public class EndScreenUI : MonoBehaviour
             GUI.Label(new Rect(left, top - 58f, buttonWidth * 2f + gap, 42f),
                 $"{result}: {gameManager.Clock.ElapsedFormatted}", resultStyle);
 
+            if (gameManager.State == GameState.Won && newRecordAchieved)
+                GUI.Label(new Rect(left, top - 128f, buttonWidth * 2f + gap, 28f), "YENİ REKOR!", resultStyle);
+
             int bestTime = PlayerPrefs.GetInt(BestEscapeTimeKey, int.MaxValue);
             if (bestTime != int.MaxValue)
             {
                 string bestFormatted = $"{bestTime / 60:00}:{bestTime % 60:00}";
-                GUI.Label(new Rect(left, top - 88f, buttonWidth * 2f + gap, 28f),
+                GUI.Label(new Rect(left, top - 96f, buttonWidth * 2f + gap, 28f),
                     $"EN İYİ KAÇIŞ: {bestFormatted}", resultStyle);
             }
         }

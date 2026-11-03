@@ -67,11 +67,13 @@ Bu ilkeler, mevcut kodun gözlemlenebilir yapısına göre açıklanmıştır; h
 
 Robot `NavMeshAgent` ile zemine bake edilmiş NavMesh üzerinde yol bulur. Takip ve FSM güncellemeleri 0,15 saniyelik coroutine ile yürütülür. Takip mesafesi doğrudan `Vector3.Distance` ile ölçülür; durma mesafesi 1,8 birimdir. Oyuncu şaltere tıklarsa `PlayerController`, `Salter` etiketli hedefi doğrudan robota iletir. Robot hedefe yaklaşınca şalteri çalıştırır; normal hedeflerde `sensorPoint` üzerinden ileri raycast kullanılır. Tam yol bulunamazsa robot kısmi yolun erişilebilir ucuna ilerler. Koridor sahnesinde zemin üzerindeki NavMesh yüzeyi kullanılmalı; Robot altındaki eski ikinci `NavMeshSurface` devre dışıdır.
 
-Koridor kontrolleri: `WASD` veya ok tuşlarıyla hareket, fareyle bakış, `Space` ile zıplama, `F` ile el feneri, sol tıklamayla robot komutu ve `Escape` ile duraklatma menüsü açılır. Gamepad’de sol çubuk hareket, sağ çubuk bakış, A/× zıplama, X/□ el feneri, sağ omuz tuşu robot komutu, Start duraklatmadır. Duraklatma menüsünden ana ses, fare hassasiyeti, ters dikey bakış ve tam ekran ayarlanıp kaydedilebilir. Girişler Unity Input System paketini kullanır. Nişangâh şaltere bakarken yeşile döner ve robot komut ipucunu gösterir.
+Koridor kontrolleri: `WASD` veya ok tuşlarıyla hareket, dayanıklılık varken `Shift` ile koşma, fareyle bakış, `Space` ile zıplama, `F` ile el feneri, sol tıklamayla robot komutu ve `Escape` ile duraklatma menüsü açılır. Zıplama tuşu kısa süre önceden basılırsa giriş hatırlanır; platform kenarından ayrıldıktan hemen sonra da zıplanabilir. Bu süreler Inspector’dan ayarlanabilir. Oyuncu yürürken ve koşarken Inspector’dan atanabilen rastgele ayak sesi klipleri farklı aralıklarla çalar. Hareket ivmeli çalışır; havadaki yön kontrolü Inspector’dan ayrı ayarlanabilir. Koşarken kamera görüş açısı yumuşakça genişler. Gamepad’de sol çubuk hareket, sol çubuk tuşuna basılı tutma koşma, sağ çubuk bakış, A/× zıplama, X/□ el feneri, sağ omuz tuşu robot komutu, Start duraklatmadır. Koşu enerjisi dinlenirken kısa bir gecikmeyle dolar; tamamen tükenirse kısmen dolana kadar koşma kilitlenir. Enerji ekranda gösterilir. Duraklatma menüsünden ana ses, fare hassasiyeti, ters dikey bakış ve tam ekran ayarlanıp kaydedilebilir. Girişler Unity Input System paketini kullanır. Nişangâh şaltere bakarken yeşile döner ve robot komut ipucunu gösterir.
 
 Ana menü gamepad ile de kullanılabilir: D-pad veya sol çubukla seçenek değişir, A/× seçer, B/○ çıkar.
 
-Kazanma ve kaybetme ekranlarında geçen oyun süresi gösterilir; kazanma süresi yerel en iyi kaçış rekoru olarak saklanır. D-pad veya sol çubukla “Tekrar Oyna” ve “Ana Menü” arasında seçim yapılır; A/× seçer, B/○ ana menüye döner.
+Kazanma ve kaybetme ekranlarında geçen oyun süresi gösterilir; kazanma süresi yerel en iyi kaçış rekoru olarak saklanır ve ana menüde de gösterilir. D-pad veya sol çubukla “Tekrar Oyna” ve “Ana Menü” arasında seçim yapılır; A/× seçer, B/○ ana menüye döner.
+
+Duraklatma menüsünde gamepad ile D-pad/sol çubuk seçenekleri değiştirir; sol/sağ ses ve fare hassasiyetini ayarlar, A/× ters bakış, tam ekran ve titreşim seçeneklerini değiştirir. “Varsayılan Ayarları Sıfırla” tüm tercihleri başlangıç değerlerine döndürür. Ana menüye dönme ve yeniden başlatma için onay gerekir. B/○ oyuna döner.
 
 Saat göstergesinin yanında hedef paneli bulunur. Şalter devre dışı bırakılınca hedef çıkışa ulaşmak olarak değişir; kapı sahnesinde dilekçe ve çıkış adımlarını gösterir.
 
@@ -112,7 +114,7 @@ Ollama, modelin yerel makinede çalışmasını sağlar; böylece oyun diyaloğu
 
 ### İstek ve yanıt sözleşmesi
 
-`PetitionValidator`, [PetitionRules_Default.asset](Assets/_Project/Data/PetitionRules_Default.asset) içindeki dilekçe kurallarını uygular: en az karakter sayısı, resmî hitap, mazeret ve açık çıkış talebi. Bu alanlar Unity Inspector’da düzenlenebilir. Kapı yalnızca yerel kontrolden geçerse açılır. Ollama’ya kabul/red sonucu bağlam olarak verilir; modelin ürettiği karar alanları oyun tarafından okunmaz. Böylece model yanıtı kapı kuralını değiştiremez.
+`PetitionValidator`, [PetitionRules_Default.asset](Assets/_Project/Data/PetitionRules_Default.asset) içindeki dilekçe kurallarını uygular: 40–500 karakter, resmî hitap, mazeret ve açık çıkış talebi. Bu alanlar Unity Inspector’da düzenlenebilir. Karakter sınırı giriş alanına da uygulanır ve yazarken sayaçta görünür; eksik koşul anlık olarak arayüzde belirtilir. Aşırı uzun metin Ollama’ya gönderilmez. Kapı yalnızca yerel kontrolden geçerse açılır. Ollama’ya kabul/red sonucu bağlam olarak verilir; modelin ürettiği karar alanları oyun tarafından okunmaz. Böylece model yanıtı kapı kuralını değiştiremez.
 
 `NPCResponseData` ve `OllamaManager` yalnızca diyalog metnini işler:
 
@@ -178,7 +180,7 @@ LLM, oyun döngüsünün dış bağımlılığı olduğundan başarısızlığı
 - Ollama bağlantısı veya JSON yanıtı başarısız olsa da kapı kararı yerel doğrulayıcıya göre uygulanır; fallback yalnızca uygun NPC diyalog metnini sağlar.
 - İstek, yanıt tamamlanana kadar `Task.Yield` ile beklenir. Bu, Unity ana iş parçacığını senkron beklemeyle kilitlememek içindir.
 
-`OllamaManager` isteği varsayılan 8 saniyede zaman aşımına uğrar; bu değer bileşenin Inspector alanından değiştirilebilir. `Task.Yield` asenkron bekleme sağlar, tek başına zaman aşımı süresi belirlemez.
+`OllamaManager` isteği varsayılan 8 saniyede zaman aşımına uğrar; sıcaklık (0–2 aralığı, varsayılan 0,4) ve yanıt token sınırı (varsayılan 120) Inspector’dan ayarlanabilir. `Task.Yield` asenkron bekleme sağlar, tek başına zaman aşımı süresi belirlemez.
 
 ## Kurulum ve çalıştırma
 

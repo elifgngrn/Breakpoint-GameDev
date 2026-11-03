@@ -9,6 +9,8 @@ public class OllamaManager : MonoBehaviour
     [SerializeField] private string ollamaUrl = "http://localhost:11434/api/generate";
     [SerializeField] private string modelName = "llama3.2";
     [SerializeField, Min(1f)] private float requestTimeoutSeconds = 8f;
+    [SerializeField, Range(0f, 2f)] private float temperature = 0.4f;
+    [SerializeField, Min(16)] private int maxResponseTokens = 120;
 
     public int RequestTimeoutSeconds => Mathf.Max(1, Mathf.CeilToInt(requestTimeoutSeconds));
 
@@ -32,6 +34,14 @@ YANITINI KESİNLİKLE BAŞKA HİÇBİR AÇIKLAMA VEYA METİN EKLEMEDEN SADECE VE
         public string prompt;
         public string system;
         public bool stream;
+        public OllamaGenerationOptions options;
+    }
+
+    [Serializable]
+    private class OllamaGenerationOptions
+    {
+        public float temperature;
+        public int num_predict;
     }
 
     [Serializable]
@@ -48,7 +58,12 @@ YANITINI KESİNLİKLE BAŞKA HİÇBİR AÇIKLAMA VEYA METİN EKLEMEDEN SADECE VE
             model = modelName,
             prompt = $"Yerel oyun kararı: dilekçe {(petitionAccepted ? "kabul edildi" : "reddedildi")}.\nOyuncunun mesajı: {userMessage}",
             system = systemPrompt,
-            stream = false
+            stream = false,
+            options = new OllamaGenerationOptions
+            {
+                temperature = Mathf.Clamp(temperature, 0f, 2f),
+                num_predict = Mathf.Max(16, maxResponseTokens)
+            }
         };
 
         string jsonRequestBody = JsonUtility.ToJson(payload);

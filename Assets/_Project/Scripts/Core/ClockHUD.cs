@@ -157,7 +157,7 @@ public sealed class ClockHUD : MonoBehaviour
         {
             return gm.LasersCleared
                 ? "HEDEF  ·  ÇIKIŞA ULAŞ\nLazerler kapalı. Koridorun sonundaki çıkışa git."
-                : "HEDEF  ·  ŞALTERİ DEVRE DIŞI BIRAK\nŞaltere nişan alıp sol tıkla; robotu gönder.";
+                : "HEDEF  ·  ŞALTERİ DEVRE DIŞI BIRAK\nŞaltere nişan al; sol tıkla veya gamepad’de RB’ye bas.";
         }
 
         if (scene == "Level_Door")
