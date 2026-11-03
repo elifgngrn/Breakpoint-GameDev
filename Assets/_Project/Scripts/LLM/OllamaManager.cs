@@ -14,6 +14,18 @@ public class OllamaManager : MonoBehaviour
 
     public int RequestTimeoutSeconds => Mathf.Max(1, Mathf.CeilToInt(requestTimeoutSeconds));
 
+    public Task<NPCResponseData> GenerateGreetingAsync()
+    {
+        return Task.FromResult(new NPCResponseData
+        {
+            dialogue = "İyi akşamlar. Çıkış için dilekçenizi iletir misiniz?",
+            doorDecision = "keep_locked",
+            door_locked = true,
+            call_police = false,
+            usedFallback = true
+        });
+    }
+
     [Header("LLM Sistem Promptu")]
     [SerializeField] 
     [TextArea(6, 12)]
@@ -132,6 +144,8 @@ YANITINI KESİNLİKLE BAŞKA HİÇBİR AÇIKLAMA VEYA METİN EKLEMEDEN SADECE A�
                      string.Equals(data.doorDecision, "keep_locked", StringComparison.OrdinalIgnoreCase)))
                 {
                     data.doorDecision = data.doorDecision.Trim().ToLowerInvariant();
+                    data.door_locked = data.doorDecision != "unlock";
+                    data.call_police = false;
                     data.usedFallback = false;
                     Debug.Log($"Ollama yapılandırılmış NPC kararı: {data.doorDecision}", this);
                     return data;
@@ -152,7 +166,9 @@ YANITINI KESİNLİKLE BAŞKA HİÇBİR AÇIKLAMA VEYA METİN EKLEMEDEN SADECE A�
         {
             usedFallback = true,
             dialogue = "Nöbetçi kütüphaneci şu an karar veremiyor. Kapı kilitli kaldı; lütfen tekrar dene.",
-            doorDecision = "keep_locked"
+            doorDecision = "keep_locked",
+            door_locked = true,
+            call_police = false
         };
     }
 }

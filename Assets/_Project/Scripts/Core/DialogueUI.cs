@@ -4,6 +4,7 @@ using TMPro;
 using UnityEngine.UI;
 using Core;
 using Breakpoint.Core;
+using UnityEngine.InputSystem;
 
 public class DialogueUI : MonoBehaviour
 {
@@ -20,6 +21,20 @@ public class DialogueUI : MonoBehaviour
     [SerializeField] private PetitionRules petitionRules;
     private TMP_Text characterCounter;
     private TMP_Text petitionHint;
+    private bool greetingRequested;
+    private int responseVersion;
+
+    private void Awake()
+    {
+        // A duplicate DialogueUI was serialized on DialoguePanel itself. It would
+        // run Start only after the panel opened, then hide its own panel and leave
+        // the game in Dialogue state. The Canvas-level component is the controller.
+        if (dialoguePanel == gameObject)
+        {
+            enabled = false;
+            return;
+        }
+    }
 
     private void Start()
     {
@@ -37,7 +52,15 @@ public class DialogueUI : MonoBehaviour
             sendButton.onClick.AddListener(MesajGonder);
         }
 
-        DiyaloguBaslat();   // panel sahne açılınca zaten görünüyor, durumu da buna eşle
+        if (dialoguePanel != null)
+            dialoguePanel.SetActive(false);
+    }
+
+    private void Update()
+    {
+        if (dialoguePanel == null || !dialoguePanel.activeInHierarchy) return;
+        if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
+            DiyaloguBitir();
     }
 
     private void CreateCharacterCounter()
@@ -121,6 +144,12 @@ public class DialogueUI : MonoBehaviour
         // Oyuncunun hareketini ve kamerasını dondur, imleci serbest bırak
         FindAnyObjectByType<PlayerController>()?.SetDialogueActive(true);
 
+        if (!greetingRequested)
+        {
+            greetingRequested = true;
+            _ = GreetPlayerAsync();
+        }
+
         // Metin kutusuna otomatik odaklan
         if (playerInputField != null)
         {
@@ -129,6 +158,26 @@ public class DialogueUI : MonoBehaviour
         }
 
         Debug.Log("Diyalog paneli açıldı, oyuncu donduruldu.");
+    }
+
+    private async System.Threading.Tasks.Task GreetPlayerAsync()
+    {
+        if (npcAnswerText == null) return;
+        int version = responseVersion;
+        npcAnswerText.text = "Güvenlik görevlisi düşünüyor...";
+        if (ollamaManager == null)
+        {
+            npcAnswerText.text = "İyi akşamlar. Çıkış için dilekçenizi iletir misiniz?";
+            return;
+        }
+
+        NPCResponseData response = await ollamaManager.GenerateGreetingAsync();
+        if (this == null || version != responseVersion || npcAnswerText == null || dialoguePanel == null || !dialoguePanel.activeInHierarchy)
+            return;
+        npcAnswerText.text = response == null || string.IsNullOrWhiteSpace(response.dialogue)
+            ? "İyi akşamlar. Çıkış için dilekçenizi iletir misiniz?"
+            : NormalizeQuotesForFont(response.dialogue) +
+              (response.usedFallback ? "\n\nYerel yanıt gösteriliyor." : string.Empty);
     }
 
     public void DiyaloguBitir()
@@ -168,31 +217,34 @@ public class DialogueUI : MonoBehaviour
 
         string mesaj = playerInputField.text;
         if (string.IsNullOrWhiteSpace(mesaj)) return;
+        int requestVersion = ++responseVersion;
 
         bool yerelOnKontrolGecti = PetitionValidator.Validate(mesaj, petitionRules, out string dilekceGeriBildirimi);
 
     // Çift tıklamayı önlemek için butonu geçici kapat
         if (sendButton != null) sendButton.interactable = false;
-        npcAnswerText.text = $"Kütüphaneci yanıtlıyor... (en fazla {ollamaManager.RequestTimeoutSeconds} sn)";
+        npcAnswerText.text = $"Güvenlik görevlisi düşünüyor... (en fazla {ollamaManager.RequestTimeoutSeconds} sn)";
 
         // Yapılandırılmış LLM kararı yerel dilekçe kurallarıyla ayrıca doğrulanır.
         var manager = ollamaManager;
         var yanit = await manager.SendPromptToOllama(mesaj, yerelOnKontrolGecti, dilekceGeriBildirimi);
 
         // Sahne değişmiş veya UI kapatılmış olabilirken async istek tamamlanabilir.
-        if (this == null || npcAnswerText == null || playerInputField == null)
+        if (this == null || requestVersion != responseVersion || npcAnswerText == null || playerInputField == null)
             return;
 
     // Yanıtın null gelme ihtimaline karşı güvenlik kontrolü
         if (yanit == null)
         {
-            npcAnswerText.text = "Kütüphaneci şu an cevap veremiyor.";
+            npcAnswerText.text = "Güvenlik görevlisi şu an cevap veremiyor.";
             if (sendButton != null) sendButton.interactable = true;
             return;
         }
 
     // Gelen yanıtı ekrana yazdır
-        string npcYaniti = yanit.dialogue;
+        string npcYaniti = string.IsNullOrEmpty(yanit.dialogue)
+            ? "Güvenlik görevlisi cevap verdi ancak mesajı alınamadı."
+            : yanit.dialogue;
         bool unlockRequested = !yanit.usedFallback && yanit.doorDecision == "unlock";
         bool doorUnlocked = false;
         if (unlockRequested && !yerelOnKontrolGecti)
@@ -200,7 +252,11 @@ public class DialogueUI : MonoBehaviour
             Debug.LogWarning("DialogueUI: Ollama unlock kararı verdi ancak dilekçe yerel kuralları karşılamadığı için kapı kilitli kaldı.", this);
             npcYaniti = "Dilekçe koşulları tamamlanmadığı için kapı kilitli kaldı.";
         }
-        else if (unlockRequested)
+        npcYaniti = NormalizeQuotesForFont(npcYaniti);
+        if (yanit.usedFallback)
+            npcYaniti += "\n\nOllama yanıt veremedi; yerel yanıt gösteriliyor.";
+
+        if (unlockRequested && yerelOnKontrolGecti)
         {
             var door = FindAnyObjectByType<DoorController>();
             if (door != null)
@@ -216,12 +272,11 @@ public class DialogueUI : MonoBehaviour
             }
         }
 
-        npcYaniti = NormalizeQuotesForFont(npcYaniti);
         npcAnswerText.text = !doorUnlocked && !yerelOnKontrolGecti && !yanit.usedFallback
             ? $"{npcYaniti}\n\n{dilekceGeriBildirimi}"
             : npcYaniti;
 
-    // Yeni mesaj yazılabilmesi için alanı temizle ve butonu aç
+        // A rejected petition can be revised and sent again.
         playerInputField.text = "";
         if (sendButton != null) sendButton.interactable = true;
 

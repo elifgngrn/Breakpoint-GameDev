@@ -1,7 +1,6 @@
 using TMPro;
 using UnityEngine.UI;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 using System.Collections;
 using Breakpoint.Core;
 
@@ -50,7 +49,7 @@ public sealed class ClockHUD : MonoBehaviour
         rect.anchorMin = new Vector2(1f, 1f);
         rect.anchorMax = new Vector2(1f, 1f);
         rect.pivot = new Vector2(1f, 1f);
-        rect.sizeDelta = new Vector2(180f, 54f);
+        rect.sizeDelta = new Vector2(160f, 52f);
         rect.anchoredPosition = new Vector2(-24f, -24f);
         label.alignment = TextAlignmentOptions.Center;
         label.fontSize = 30f;
@@ -67,7 +66,7 @@ public sealed class ClockHUD : MonoBehaviour
         panelRect.anchorMin = new Vector2(0f, 1f);
         panelRect.anchorMax = new Vector2(0f, 1f);
         panelRect.pivot = new Vector2(0f, 1f);
-        panelRect.sizeDelta = new Vector2(500f, 116f);
+        panelRect.sizeDelta = new Vector2(420f, 108f);
         panelRect.anchoredPosition = new Vector2(24f, -24f);
 
         var background = objectivePanel.GetComponent<RawImage>();
@@ -85,7 +84,7 @@ public sealed class ClockHUD : MonoBehaviour
 
         objectiveLabel = textObject.GetComponent<TextMeshProUGUI>();
         objectiveLabel.font = label.font;
-        objectiveLabel.fontSize = 19f;
+        objectiveLabel.fontSize = 18f;
         objectiveLabel.color = Color.white;
         objectiveLabel.alignment = TextAlignmentOptions.MidlineLeft;
         objectiveLabel.raycastTarget = false;
@@ -99,11 +98,11 @@ public sealed class ClockHUD : MonoBehaviour
         var panel = new GameObject("GameNotification", typeof(RectTransform), typeof(CanvasGroup), typeof(UnityEngine.UI.Image));
         panel.transform.SetParent(canvas.transform, false);
         var rect = (RectTransform)panel.transform;
-        rect.anchorMin = new Vector2(0.5f, 1f);
-        rect.anchorMax = new Vector2(0.5f, 1f);
-        rect.pivot = new Vector2(0.5f, 1f);
+        rect.anchorMin = new Vector2(0.5f, 0f);
+        rect.anchorMax = new Vector2(0.5f, 0f);
+        rect.pivot = new Vector2(0.5f, 0f);
         rect.sizeDelta = new Vector2(560f, 56f);
-        rect.anchoredPosition = new Vector2(0f, -28f);
+        rect.anchoredPosition = new Vector2(0f, 92f);
 
         var image = panel.GetComponent<UnityEngine.UI.Image>();
         image.color = new Color(0.035f, 0.055f, 0.075f, 0.94f);
@@ -151,22 +150,26 @@ public sealed class ClockHUD : MonoBehaviour
 
     private static string GetObjectiveText(GameManager gm)
     {
-        string scene = SceneManager.GetActiveScene().name;
-
-        if (scene == "Level_Corridor")
+        switch (gm.StoryStage)
         {
-            return gm.LasersCleared
-                ? "HEDEF  ·  ÇIKIŞA ULAŞ\nLazerler kapalı. Koridorun sonundaki çıkışa git."
-                : "HEDEF  ·  ŞALTERİ DEVRE DIŞI BIRAK\nŞaltere nişan al; sol tıkla veya gamepad’de RB’ye bas.";
+            case LibraryStoryStage.WakeAtDesk:
+                return "VİZE HAFTASI  ·  ÜST KAT\nMasadan E ile kalk ve robotu ara.";
+            case LibraryStoryStage.FindRobot:
+                return "GÖREV 1  ·  ROBOTU BUL\nMavi ışığı takip et; yakınına gelince E ile etkinleştir.";
+            case LibraryStoryStage.ActivateRobot:
+                return $"GÖREV 2  ·  ROBOTU ÇALIŞTIR\nTozu temizle ve E komutunu tekrarla.  {gm.RobotActivationProgress}/{gm.RobotActivationRequired}";
+            case LibraryStoryStage.DescendStairs:
+                return "GÖREV 3  ·  ALT KATA İN\nRobotu takip et; merdivenlerden dikkatle in.";
+            case LibraryStoryStage.ClearDebris:
+                return $"GÖREV 4  ·  GEÇİŞİ AÇ\nDevrilmiş raflara bakıp E ile robotu yönlendir.  {gm.ClearedDebrisCount}/3";
+            case LibraryStoryStage.ReachSecurity:
+                return "GÖREV 5  ·  GÜVENLİK GÖREVLİSİ\nÇıkışta görevliye yaklaş ve E ile konuş.";
+            case LibraryStoryStage.PersuadeSecurity:
+                return "SON GÖREV  ·  İKNA ET\nResmî dilekçeni yaz ve güvenliğe gönder.";
+            case LibraryStoryStage.Complete:
+                return "KAÇIŞ TAMAMLANDI\nGüvenlik ikna oldu; kütüphane kapısı açıldı.";
+            default:
+                return "GECE NÖBETİ  ·  KÜTÜPHANE";
         }
-
-        if (scene == "Level_Door")
-        {
-            return gm.DoorUnlocked
-                ? "HEDEF  ·  ÇIKIŞTAN GEÇ\nKapı açıldı. Kaçışı tamamlamak için kapıdan ilerle."
-                : "HEDEF  ·  KÜTÜPHANECİYİ İKNA ET\nResmi mazeretini yazıp dilekçeni gönder.";
-        }
-
-        return "HEDEF  ·  OYUN DEVAM EDİYOR";
     }
 }

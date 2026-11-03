@@ -1,3 +1,5 @@
+using System.Collections;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.InputSystem;
@@ -26,6 +28,8 @@ public class PlayerController : MonoBehaviour
     private float currentStamina;
     private float jumpBufferTimer = -1f;
     private float coyoteTimer = -1f;
+    private bool wasGrounded;
+    private ParticleSystem jumpLandingDust;
     private float adimZamani;
     private AudioSource adimAudioSource;
     private Vector3 yatayHiz;
@@ -37,6 +41,9 @@ public class PlayerController : MonoBehaviour
     public float yercekimi = -15f;
     private CharacterController controller;
     private Vector3 dususHizi;
+    public float CurrentPlanarSpeed => new Vector3(yatayHiz.x, 0f, yatayHiz.z).magnitude;
+    public bool IsAirborne { get; private set; }
+    public float VerticalVelocity => dususHizi.y;
 
     [Header("Kamera Ayarları")]
     public Transform oyuncuKamerasi;
@@ -56,6 +63,7 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private RobotController robotController;
     public float komutMenzili = 50f;
     private bool isDialogueActive = false;
+    private bool introInteractionLock;
 
     // Bu fonksiyonu PlayerController sınıfının içine ekle:
     public void SetDialogueActive(bool active)
@@ -73,9 +81,30 @@ public class PlayerController : MonoBehaviour
         }
     }
 
+    public void PlayWakeUpSequence()
+    {
+        introInteractionLock = false;
+        ProceduralHumanoidAnimator animator = GetComponentInChildren<ProceduralHumanoidAnimator>();
+        animator?.PlayWakeUp();
+        if (wakeSequence != null) StopCoroutine(wakeSequence);
+        wakeSequence = StartCoroutine(WakeUpRoutine());
+    }
+
+    private Coroutine wakeSequence;
+
+    private IEnumerator WakeUpRoutine()
+    {
+        SetDialogueActive(true);
+        yield return new WaitForSeconds(1.25f);
+        if (this != null) SetDialogueActive(false);
+        wakeSequence = null;
+    }
+
     void Start()
     {
         controller = GetComponent<CharacterController>();
+        wasGrounded = controller != null && controller.isGrounded;
+        jumpLandingDust = CreateJumpLandingDust();
         adimAudioSource = GetComponent<AudioSource>();
         if (adimAudioSource == null && adimSesleri != null && adimSesleri.Length > 0)
             adimAudioSource = gameObject.AddComponent<AudioSource>();
@@ -90,6 +119,8 @@ public class PlayerController : MonoBehaviour
         fareHassasiyeti = PlayerPrefs.GetFloat("Breakpoint.MouseSensitivity", fareHassasiyeti);
         tersDikeyBakış = PlayerPrefs.GetInt("Breakpoint.InvertLookY", 0) == 1;
         currentStamina = maksimumDayaniklilik;
+        introInteractionLock = GameManager.Instance != null &&
+                               GameManager.Instance.StoryStage == LibraryStoryStage.WakeAtDesk;
 
         // Robot yalnızca koridor sahnesinde bulunur; kapı sahnesinde aramak hata değildir.
         if (SceneManager.GetActiveScene().name != "Level_Corridor")
@@ -109,7 +140,32 @@ public class PlayerController : MonoBehaviour
         // Diyalog aktifken oyuncu hareketini ve kamerayı tamamen dondur
         if (isDialogueActive) return;
 
+        // Opening scene: remain seated until E targets the wake-up interaction.
+        if (introInteractionLock)
+        {
+            if (Keyboard.current != null && Keyboard.current.eKey.wasPressedThisFrame)
+            {
+                LibraryStoryInteractable[] storyInteractions =
+                    FindObjectsByType<LibraryStoryInteractable>(FindObjectsSortMode.None);
+                foreach (LibraryStoryInteractable storyInteraction in storyInteractions)
+                {
+                    if (storyInteraction.InteractionKind != LibraryInteractionKind.WakeFromDesk)
+                        continue;
+                    storyInteraction.Interact(this);
+                    break;
+                }
+            }
+            return;
+        }
+
         if (GameManager.Instance != null && GameManager.Instance.State != GameState.Playing) return;
+
+        Keyboard keyboard = Keyboard.current;
+        if (keyboard != null && keyboard.eKey.wasPressedThisFrame)
+        {
+            EtkilesimKur();
+            if (isDialogueActive) return;
+        }
 
         // 1. KAMERA DÖNDÜRME (Mouse Look)
         Vector2 mouseDelta = Mouse.current != null ? Mouse.current.delta.ReadValue() : Vector2.zero;
@@ -124,7 +180,6 @@ public class PlayerController : MonoBehaviour
         transform.Rotate(Vector3.up * fareX);
 
         // 2. WASD YÜRÜME
-        Keyboard keyboard = Keyboard.current;
         Vector2 stickMove = Gamepad.current != null ? Gamepad.current.leftStick.ReadValue() : Vector2.zero;
         float x = (keyboard == null ? 0f :
             (keyboard.dKey.isPressed || keyboard.rightArrowKey.isPressed ? 1f : 0f) -
@@ -193,15 +248,30 @@ public class PlayerController : MonoBehaviour
         else
             jumpBufferTimer -= Time.deltaTime;
 
+        bool jumpedThisFrame = false;
         if (jumpBufferTimer >= 0f && coyoteTimer >= 0f)
         {
             dususHizi.y = Mathf.Sqrt(ziplamaGucu * -2f * yercekimi); // Zıpla
             jumpBufferTimer = -1f;
             coyoteTimer = -1f;
+            jumpedThisFrame = true;
         }
 
         dususHizi.y += yercekimi * Time.deltaTime;
         controller.Move(dususHizi * Time.deltaTime); // Yerçekimini uygula
+        bool groundedAfterMove = controller.isGrounded;
+        IsAirborne = !groundedAfterMove;
+        if (jumpedThisFrame && jumpLandingDust != null)
+        {
+            jumpLandingDust.Play();
+            jumpLandingDust.Emit(7);
+        }
+        else if (!wasGrounded && groundedAfterMove && jumpLandingDust != null)
+        {
+            jumpLandingDust.Play();
+            jumpLandingDust.Emit(14);
+        }
+        wasGrounded = groundedAfterMove;
 
         // 4. EL FENERİ (F Tuşu)
         bool flashlightPressed = (keyboard != null && keyboard.fKey.wasPressedThisFrame) ||
@@ -217,6 +287,93 @@ public class PlayerController : MonoBehaviour
         if (robotCommandPressed)
         {
             RobotaKomutGonder();
+        }
+    }
+
+    private void EtkilesimKur()
+    {
+        // Debris commands are proximity interactions as well as ray interactions.
+        // The fallen shelf itself can cover the invisible trigger from the camera ray,
+        // so select the closest unfinished command in front of the player first.
+        GameManager currentManager = GameManager.Instance;
+        if (currentManager != null && currentManager.StoryStage == LibraryStoryStage.ClearDebris)
+        {
+            LibraryStoryInteractable debrisTarget = FindObjectsByType<LibraryStoryInteractable>(FindObjectsSortMode.None)
+                .Where(target => target.IsAvailable)
+                .Select(target => new
+                {
+                    Target = target,
+                    Offset = Vector3.ProjectOnPlane(target.transform.position - transform.position, Vector3.up)
+                })
+                .Where(candidate => candidate.Offset.sqrMagnitude <= 4.8f * 4.8f)
+                .OrderBy(candidate => candidate.Offset.sqrMagnitude)
+                .Select(candidate => candidate.Target)
+                .FirstOrDefault();
+            if (debrisTarget != null)
+            {
+                debrisTarget.Interact(this);
+                return;
+            }
+        }
+
+        // Robot remains usable even when a shelf, chair or its small collider
+        // obscures the camera ray during the discovery step.
+        GameManager manager = GameManager.Instance;
+        if (manager != null && manager.StoryStage == LibraryStoryStage.FindRobot)
+        {
+            LibraryStoryInteractable robotTarget = FindObjectsByType<LibraryStoryInteractable>(FindObjectsSortMode.None)
+                .Where(target => target.InteractionKind == LibraryInteractionKind.ActivateRobot)
+                .OrderBy(target => Vector3.SqrMagnitude(target.transform.position - transform.position))
+                .FirstOrDefault();
+            if (robotTarget != null && Vector3.Distance(robotTarget.transform.position, transform.position) <= 3.2f)
+            {
+                robotTarget.Interact(this);
+                return;
+            }
+        }
+        if (oyuncuKamerasi == null) return;
+        Ray ray = new Ray(oyuncuKamerasi.position, oyuncuKamerasi.forward);
+        // Third-person camera sits behind the avatar; include that offset in the usable reach.
+        RaycastHit[] hits = Physics.RaycastAll(ray, 7.5f);
+        System.Array.Sort(hits, (left, right) => left.distance.CompareTo(right.distance));
+        RaycastHit hit = default;
+        bool foundExternalHit = false;
+        foreach (RaycastHit candidate in hits)
+        {
+            if (candidate.collider.transform == transform || candidate.collider.transform.IsChildOf(transform))
+                continue;
+
+            // Story targets can sit behind furniture or visual-only colliders. Give a
+            // deliberate story interaction priority across the whole short ray.
+            LibraryStoryInteractable storyTarget =
+                candidate.collider.GetComponentInParent<LibraryStoryInteractable>();
+            if (storyTarget != null)
+            {
+                storyTarget.Interact(this);
+                return;
+            }
+
+            if (foundExternalHit)
+                continue;
+            hit = candidate;
+            foundExternalHit = true;
+        }
+        if (!foundExternalHit) return;
+
+        IInteractable interactable = hit.collider.GetComponentInParent<IInteractable>();
+        if (interactable != null)
+        {
+            interactable.Interact(this);
+            return;
+        }
+
+        // Existing scenes mark the robot's switch with the Salter tag.
+        if (hit.collider.CompareTag("Salter") && robotController != null)
+        {
+            bool accepted = robotController.MoveToSwitch(hit.collider.transform);
+            GameEvents.RaiseNotification(accepted
+                ? "Robot şaltere doğru ilerliyor."
+                : "Robot şaltere ulaşamıyor; NavMesh bağlantısını kontrol edin.");
         }
     }
 
@@ -243,35 +400,72 @@ public class PlayerController : MonoBehaviour
         adimZamani = sprinting ? kosmaAdimAraligi : yurumeAdimAraligi;
     }
 
+    private ParticleSystem CreateJumpLandingDust()
+    {
+        GameObject effectObject = new GameObject("Jump_Landing_Dust");
+        effectObject.transform.SetParent(transform, false);
+        effectObject.transform.localPosition = new Vector3(0f, .06f, 0f);
+        ParticleSystem particles = effectObject.AddComponent<ParticleSystem>();
+        ParticleSystem.MainModule main = particles.main;
+        main.loop = false;
+        main.playOnAwake = false;
+        main.duration = .35f;
+        main.simulationSpace = ParticleSystemSimulationSpace.World;
+        main.stopAction = ParticleSystemStopAction.None;
+        main.startLifetime = new ParticleSystem.MinMaxCurve(.22f, .42f);
+        main.startSpeed = new ParticleSystem.MinMaxCurve(.55f, 1.25f);
+        main.startSize = new ParticleSystem.MinMaxCurve(.07f, .14f);
+        main.startColor = new Color(.72f, .62f, .48f, .72f);
+        ParticleSystem.EmissionModule emission = particles.emission;
+        emission.enabled = false;
+        ParticleSystem.ShapeModule shape = particles.shape;
+        shape.shapeType = ParticleSystemShapeType.Circle;
+        shape.radius = .2f;
+        return particles;
+    }
+
     private void RobotaKomutGonder()
     {
-        if (robotController == null || oyuncuKamerasi == null)
+        if (robotController == null || !TryGetExternalCameraHit(komutMenzili, out RaycastHit hit))
             return;
 
-        Ray ray = new Ray(oyuncuKamerasi.position, oyuncuKamerasi.forward);
-        if (Physics.Raycast(ray, out RaycastHit hit, komutMenzili))
+        Debug.Log("Robot komutu hedefi: " + hit.collider.name, hit.collider);
+        if (hit.collider.CompareTag("Salter"))
         {
-            Debug.Log("Robot komutu hedefi: " + hit.collider.name, hit.collider);
-            if (hit.collider.CompareTag("Salter"))
-            {
-                bool accepted = robotController.MoveToSwitch(hit.collider.transform);
-                GameEvents.RaiseNotification(accepted
-                    ? "Robot şaltere gönderildi."
-                    : "Robot şaltere ulaşamıyor; NavMesh bağlantısını kontrol et.");
-            }
-            else
-            {
-                bool accepted = robotController.MoveTo(hit.point);
-                GameEvents.RaiseNotification(accepted
-                    ? "Robot seçilen noktaya ilerliyor."
-                    : "Bu hedefin yakınında yürünebilir zemin yok. Zemine nişan alıp tekrar dene.");
-            }
+            bool accepted = robotController.MoveToSwitch(hit.collider.transform);
+            GameEvents.RaiseNotification(accepted
+                ? "Robot şaltere gönderildi."
+                : "Robot şaltere ulaşamıyor; NavMesh bağlantısını kontrol et.");
         }
         else
         {
-            Debug.Log("Robot komutu için görüş doğrultusunda hedef bulunamadı.", this);
-            GameEvents.RaiseNotification("Hedef görünmüyor. Kamerayı hedefe çevirip tekrar dene.");
+            bool accepted = robotController.MoveTo(hit.point);
+            GameEvents.RaiseNotification(accepted
+                ? "Robot seçilen noktaya ilerliyor."
+                : "Bu hedefin yakınında yürünebilir zemin yok. Zemine nişan alıp tekrar dene.");
         }
+    }
+
+    private bool TryGetExternalCameraHit(float distance, out RaycastHit hit)
+    {
+        hit = default;
+        if (oyuncuKamerasi == null) return false;
+
+        RaycastHit[] hits = Physics.RaycastAll(
+            oyuncuKamerasi.position,
+            oyuncuKamerasi.forward,
+            distance,
+            Physics.DefaultRaycastLayers,
+            QueryTriggerInteraction.Ignore);
+        System.Array.Sort(hits, (left, right) => left.distance.CompareTo(right.distance));
+        foreach (RaycastHit candidate in hits)
+        {
+            Transform target = candidate.collider.transform;
+            if (target == transform || target.IsChildOf(transform)) continue;
+            hit = candidate;
+            return true;
+        }
+        return false;
     }
 
     private void OnGUI()
@@ -279,15 +473,7 @@ public class PlayerController : MonoBehaviour
         if (isDialogueActive || (GameManager.Instance != null && GameManager.Instance.State != GameState.Playing))
             return;
 
-        bool aimingAtSwitch = false;
-        if (oyuncuKamerasi != null && Physics.Raycast(
-                oyuncuKamerasi.position,
-                oyuncuKamerasi.forward,
-                out RaycastHit hit,
-                komutMenzili))
-        {
-            aimingAtSwitch = hit.collider.CompareTag("Salter");
-        }
+        bool aimingAtSwitch = TryGetExternalCameraHit(komutMenzili, out RaycastHit hit) && hit.collider.CompareTag("Salter");
 
         DrawStaminaBar();
 
