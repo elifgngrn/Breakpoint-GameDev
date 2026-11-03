@@ -56,6 +56,13 @@ namespace Breakpoint.Robot
 
         public void Interact(PlayerController player)
         {
+            LibraryStoryInteractable storyInteraction = GetComponent<LibraryStoryInteractable>();
+            if (storyInteraction != null)
+            {
+                storyInteraction.Interact(player);
+                return;
+            }
+
             GameEvents.RaiseNotification(currentState == RobotState.MoveToTarget
                 ? "Robot komutu aldı, hedefe ilerliyor."
                 : "Robot hazır. Şaltere bakıp E'ye basarak engeli çözmesini iste.");
@@ -86,11 +93,17 @@ namespace Breakpoint.Robot
         {
             if (!IsOperational || agent == null || !agent.isOnNavMesh || agent.pathPending)
                 return false;
-            if (agent.hasPath && agent.pathStatus == NavMeshPathStatus.PathInvalid)
+            if (agent.hasPath && agent.pathStatus != NavMeshPathStatus.PathComplete)
+                return false;
+            if (!agent.hasPath && currentState != RobotState.ScanInteract)
                 return false;
 
-            return Vector3.Distance(transform.position, destination) <= tolerance ||
-                   (agent.hasPath && agent.remainingDistance <= tolerance && agent.velocity.sqrMagnitude < 0.16f);
+            // Follow mode uses a roomy stopping distance. Count a work-point arrival
+            // at the agent's actual stop radius instead of waiting for an unreachable
+            // sub-metre distance after it has already stopped.
+            float arrivalTolerance = Mathf.Max(tolerance, agent.stoppingDistance + 0.15f);
+            return Vector3.Distance(transform.position, destination) <= arrivalTolerance ||
+                   (agent.hasPath && agent.remainingDistance <= arrivalTolerance && agent.velocity.sqrMagnitude < 0.16f);
         }
 
         private void Awake()

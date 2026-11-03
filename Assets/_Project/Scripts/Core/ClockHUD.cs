@@ -155,7 +155,7 @@ public sealed class ClockHUD : MonoBehaviour
             case LibraryStoryStage.WakeAtDesk:
                 return "VİZE HAFTASI  ·  ÜST KAT\nMasadan E ile kalk ve robotu ara.";
             case LibraryStoryStage.FindRobot:
-                return "GÖREV 1  ·  ROBOTU BUL\nMasa sıralarının yanında tozlanmış robot var.";
+                return "GÖREV 1  ·  ROBOTU BUL\nMavi ışığı takip et; yakınına gelince E ile etkinleştir.";
             case LibraryStoryStage.ActivateRobot:
                 return $"GÖREV 2  ·  ROBOTU ÇALIŞTIR\nTozu temizle ve E komutunu tekrarla.  {gm.RobotActivationProgress}/{gm.RobotActivationRequired}";
             case LibraryStoryStage.DescendStairs:

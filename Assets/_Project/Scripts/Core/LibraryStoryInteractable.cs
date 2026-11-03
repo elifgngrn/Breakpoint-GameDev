@@ -23,9 +23,12 @@ public sealed class LibraryStoryInteractable : MonoBehaviour, IInteractable
     private int interactionCount;
     private bool commandInProgress;
     private bool cleared;
+    private float commandDeadline;
 
     public string InteractionPrompt => prompt;
     public int InteractionCount => interactionCount;
+    public LibraryInteractionKind InteractionKind => kind;
+    public bool IsAvailable => kind == LibraryInteractionKind.ClearDebris && !cleared && !commandInProgress;
 
     private void Awake()
     {
@@ -37,8 +40,23 @@ public sealed class LibraryStoryInteractable : MonoBehaviour, IInteractable
     private void Update()
     {
         if (!commandInProgress || robot == null || robotWorkPoint == null) return;
-        if (!robot.HasReachedDestination(robotWorkPoint.position, 0.85f)) return;
+        if (robot.HasReachedDestination(robotWorkPoint.position, 0.85f))
+        {
+            CompleteDebrisCommand();
+            return;
+        }
 
+        bool robotStoppedEarly = robot.CurrentState != RobotController.RobotState.MoveToTarget &&
+                                 robot.CurrentState != RobotController.RobotState.ScanInteract;
+        if (!robotStoppedEarly && Time.time < commandDeadline) return;
+
+        commandInProgress = false;
+        robot.FollowPlayer();
+        GameEvents.RaiseNotification("Robot hedefe ulaşamadı. Enkaza yaklaş ve E ile yeniden komut ver.");
+    }
+
+    private void CompleteDebrisCommand()
+    {
         commandInProgress = false;
         cleared = true;
         if (debrisVisuals != null) debrisVisuals.SetActive(false);
@@ -104,6 +122,8 @@ public sealed class LibraryStoryInteractable : MonoBehaviour, IInteractable
             return;
         }
 
+        Transform dustCover = robot.transform.Find("Dust_Cover");
+        if (dustCover != null) dustCover.gameObject.SetActive(false);
         robot.SetOperational(true);
         manager.SetStoryStage(LibraryStoryStage.DescendStairs);
         GameEvents.RaiseNotification("Robot çalışıyor. Birlikte merdivenlerden alt kata inin.");
@@ -132,6 +152,7 @@ public sealed class LibraryStoryInteractable : MonoBehaviour, IInteractable
         }
 
         commandInProgress = true;
+        commandDeadline = Time.time + 24f;
         GameEvents.RaiseNotification("Robot enkazın yanına gidiyor; geçiş için alanı temizliyor.");
     }
 }

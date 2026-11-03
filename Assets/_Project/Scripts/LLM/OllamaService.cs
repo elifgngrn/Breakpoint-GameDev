@@ -34,11 +34,23 @@ public class OllamaService : MonoBehaviour
 
     public async Task<NPCResponseData> GenerateDialogueAsync(string userMessage, bool petitionAccepted)
     {
+        string prompt = "Oyun kararı: dilekçe " + (petitionAccepted ? "kabul edildi; kapı kilitli değil, polisi çağırma." : "reddedildi; kapı kilitli, polisi çağırma.") +
+                        "\nOyuncunun mesajı: " + userMessage;
+        return await RequestAsync(prompt, petitionAccepted);
+    }
+
+    public async Task<NPCResponseData> GenerateGreetingAsync()
+    {
+        const string prompt = "Oyuncu güvenlik görevlisine yaklaştı. Henüz dilekçe sunmadı. Kısa, doğal bir Türkçe karşılama yap ve dilekçesini göndermesini iste. Kapı kilitli kalmalı, polisi çağırma.";
+        return await RequestAsync(prompt, false, greeting: true);
+    }
+
+    private async Task<NPCResponseData> RequestAsync(string prompt, bool petitionAccepted, bool greeting = false)
+    {
         var payload = new GenerateRequest
         {
             model = model,
-            prompt = "Oyun kararı: dilekçe " + (petitionAccepted ? "kabul edildi; kapı kilitli değil, polisi çağırma." : "reddedildi; kapı kilitli, polisi çağırma.") +
-                     "\nOyuncunun mesajı: " + userMessage,
+            prompt = prompt,
             system = systemPrompt,
             stream = false,
             format = "json",
@@ -58,12 +70,13 @@ public class OllamaService : MonoBehaviour
                 if (request.result != UnityWebRequest.Result.Success)
                 {
                     Debug.LogWarning("Ollama isteği başarısız: " + request.error, this);
-                    return Fallback(petitionAccepted);
+                    return greeting ? GreetingFallback() : Fallback(petitionAccepted);
                 }
 
                 GenerateResponse wrapper = JsonUtility.FromJson<GenerateResponse>(request.downloadHandler.text);
                 NPCResponseData result = wrapper == null ? null : ParseModelJson(wrapper.response);
-                if (result == null || string.IsNullOrWhiteSpace(result.dialogue)) return Fallback(petitionAccepted);
+                if (result == null || string.IsNullOrWhiteSpace(result.dialogue))
+                    return greeting ? GreetingFallback() : Fallback(petitionAccepted);
 
                 // The model supplies dialogue only; game state remains authoritative.
                 result.door_locked = !petitionAccepted;
@@ -74,7 +87,7 @@ public class OllamaService : MonoBehaviour
             catch (Exception exception)
             {
                 Debug.LogWarning("Ollama bağlantı hatası: " + exception.Message, this);
-                return Fallback(petitionAccepted);
+                return greeting ? GreetingFallback() : Fallback(petitionAccepted);
             }
         }
     }
@@ -100,6 +113,14 @@ public class OllamaService : MonoBehaviour
         ? "Dilekçeniz usulüne uygun. Kapıyı açıyorum; robotunuzu da yanınıza alın."
             : "Bu dilekçe eksik. Şu anda kapıyı açamam.",
         door_locked = !petitionAccepted,
+        call_police = false,
+        usedFallback = true
+    };
+
+    private static NPCResponseData GreetingFallback() => new NPCResponseData
+    {
+        dialogue = "İyi akşamlar. Çıkış için dilekçenizi iletir misiniz?",
+        door_locked = true,
         call_police = false,
         usedFallback = true
     };

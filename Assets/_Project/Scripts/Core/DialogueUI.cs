@@ -3,6 +3,7 @@ using TMPro;
 using UnityEngine.UI;
 using Core;
 using Breakpoint.Core;
+using UnityEngine.InputSystem;
 
 public class DialogueUI : MonoBehaviour
 {
@@ -19,6 +20,20 @@ public class DialogueUI : MonoBehaviour
     [SerializeField] private PetitionRules petitionRules;
     private TMP_Text characterCounter;
     private TMP_Text petitionHint;
+    private bool greetingRequested;
+    private int responseVersion;
+
+    private void Awake()
+    {
+        // A duplicate DialogueUI was serialized on DialoguePanel itself. It would
+        // run Start only after the panel opened, then hide its own panel and leave
+        // the game in Dialogue state. The Canvas-level component is the controller.
+        if (dialoguePanel == gameObject)
+        {
+            enabled = false;
+            return;
+        }
+    }
 
     private void Start()
     {
@@ -38,6 +53,13 @@ public class DialogueUI : MonoBehaviour
 
         if (dialoguePanel != null)
             dialoguePanel.SetActive(false);
+    }
+
+    private void Update()
+    {
+        if (dialoguePanel == null || !dialoguePanel.activeInHierarchy) return;
+        if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
+            DiyaloguBitir();
     }
 
     private void CreateCharacterCounter()
@@ -121,6 +143,12 @@ public class DialogueUI : MonoBehaviour
         // Oyuncunun hareketini ve kamerasını dondur, imleci serbest bırak
         FindAnyObjectByType<PlayerController>()?.SetDialogueActive(true);
 
+        if (!greetingRequested)
+        {
+            greetingRequested = true;
+            _ = GreetPlayerAsync();
+        }
+
         // Metin kutusuna otomatik odaklan
         if (playerInputField != null)
         {
@@ -129,6 +157,26 @@ public class DialogueUI : MonoBehaviour
         }
 
         Debug.Log("Diyalog paneli açıldı, oyuncu donduruldu.");
+    }
+
+    private async System.Threading.Tasks.Task GreetPlayerAsync()
+    {
+        if (npcAnswerText == null) return;
+        int version = responseVersion;
+        npcAnswerText.text = "Güvenlik görevlisi düşünüyor...";
+        if (ollamaManager == null)
+        {
+            npcAnswerText.text = "İyi akşamlar. Çıkış için dilekçenizi iletir misiniz?";
+            return;
+        }
+
+        NPCResponseData response = await ollamaManager.GenerateGreetingAsync();
+        if (this == null || version != responseVersion || npcAnswerText == null || dialoguePanel == null || !dialoguePanel.activeInHierarchy)
+            return;
+        npcAnswerText.text = response == null || string.IsNullOrWhiteSpace(response.dialogue)
+            ? "İyi akşamlar. Çıkış için dilekçenizi iletir misiniz?"
+            : NormalizeQuotesForFont(response.dialogue) +
+              (response.usedFallback ? "\n\nYerel yanıt gösteriliyor." : string.Empty);
     }
 
     public void DiyaloguBitir()
@@ -168,6 +216,7 @@ public class DialogueUI : MonoBehaviour
 
         string mesaj = playerInputField.text;
         if (string.IsNullOrWhiteSpace(mesaj)) return;
+        int requestVersion = ++responseVersion;
 
         bool dilekceKabulEdildi = PetitionValidator.Validate(mesaj, petitionRules, out string dilekceGeriBildirimi);
 
@@ -175,27 +224,12 @@ public class DialogueUI : MonoBehaviour
         if (sendButton != null) sendButton.interactable = false;
         npcAnswerText.text = $"Güvenlik görevlisi düşünüyor... (en fazla {ollamaManager.RequestTimeoutSeconds} sn)";
 
-        // Kapı kararı yerel doğrulayıcıdan gelir; Ollama yanıtını beklemez.
-        if (dilekceKabulEdildi)
-        {
-            var door = FindAnyObjectByType<DoorController>();
-            if (door != null)
-            {
-                door.UnlockAndOpenDoor();
-                GameEvents.RaiseDoorUnlocked();
-            }
-            else
-            {
-                Debug.LogWarning("DialogueUI: Sahne içinde DoorController bulunamadı; kapı açılamadı.", this);
-            }
-        }
-
-    // Mesajı Ollama'ya gönder ve yanıt bekle
+        // Keep the player free to interact with the petition UI while the local LLM responds.
         var manager = ollamaManager;
         var yanit = await manager.SendPromptToOllama(mesaj, dilekceKabulEdildi);
 
         // Sahne değişmiş veya UI kapatılmış olabilirken async istek tamamlanabilir.
-        if (this == null || npcAnswerText == null || playerInputField == null)
+        if (this == null || requestVersion != responseVersion || npcAnswerText == null || playerInputField == null)
             return;
 
     // Yanıtın null gelme ihtimaline karşı güvenlik kontrolü
@@ -218,7 +252,23 @@ public class DialogueUI : MonoBehaviour
             ? npcYaniti
             : $"{npcYaniti}\n\n{dilekceGeriBildirimi}";
 
-    // Yeni mesaj yazılabilmesi için alanı temizle ve butonu aç
+        // Apply the validated game decision only after the NPC response has been
+        // rendered, so a successful petition doesn't end the scene before its reply.
+        if (dilekceKabulEdildi)
+        {
+            var door = FindAnyObjectByType<DoorController>();
+            if (door != null)
+            {
+                door.UnlockAndOpenDoor();
+                GameEvents.RaiseDoorUnlocked();
+            }
+            else
+            {
+                Debug.LogWarning("DialogueUI: Sahne içinde DoorController bulunamadı; kapı açılamadı.", this);
+            }
+        }
+
+        // A rejected petition can be revised and sent again.
         playerInputField.text = "";
         if (sendButton != null) sendButton.interactable = true;
     }
