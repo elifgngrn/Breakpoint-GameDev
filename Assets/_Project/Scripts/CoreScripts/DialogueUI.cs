@@ -297,6 +297,12 @@ public class DialogueUI : MonoBehaviour
             .Replace("\u2018", "'")
             .Replace("\u2019", "'")
             .Replace("\u201C", "\"")
-            .Replace("\u201D", "\"");
+            .Replace("\u201D", "\"")
+            // The project's LiberationSans SDF lacks these Polish letters that
+            // occasionally appear in local model output.
+            .Replace("\u0116", "E")
+            .Replace("\u0117", "e")
+            .Replace("\u0118", "E")
+            .Replace("\u0119", "e");
     }
 }

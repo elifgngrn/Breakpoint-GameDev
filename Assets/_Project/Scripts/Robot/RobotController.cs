@@ -443,13 +443,24 @@ namespace Breakpoint.Robot
             if (side.sqrMagnitude < 0.01f)
                 side = Vector3.Cross(Vector3.up, towardPlayer).normalized;
 
-            NavMeshPath bestPath = null;
             Vector3 bestDestination = Vector3.zero;
-            float bestPathLength = float.PositiveInfinity;
+            float bestScore = float.PositiveInfinity;
 
-            for (int direction = -1; direction <= 1; direction += 2)
+            // Try diagonal and lateral waypoints on both sides of the obstruction.
+            // The old single-distance probe could choose a short route that simply
+            // pointed back into the same shelf collider.
+            Vector3[] probes =
             {
-                Vector3 probe = transform.position + (towardPlayer + side * direction).normalized * 2.5f;
+                transform.position + (towardPlayer + side).normalized * 2.5f,
+                transform.position + (towardPlayer - side).normalized * 2.5f,
+                transform.position + (towardPlayer + side).normalized * 4f,
+                transform.position + (towardPlayer - side).normalized * 4f,
+                transform.position + side * 2.5f,
+                transform.position - side * 2.5f
+            };
+
+            foreach (Vector3 probe in probes)
+            {
                 if (!NavMesh.SamplePosition(probe, out NavMeshHit navHit, 1.5f, agent.areaMask))
                     continue;
 
@@ -463,15 +474,17 @@ namespace Breakpoint.Robot
                 for (int i = 1; i < corners.Length; i++)
                     pathLength += Vector3.Distance(corners[i - 1], corners[i]);
 
-                if (pathLength < bestPathLength)
+                // Prefer a reachable point that also moves the robot toward its
+                // player, while keeping path length as the main cost.
+                float score = pathLength + Vector3.Distance(navHit.position, playerTransform.position) * 0.65f;
+                if (score < bestScore)
                 {
-                    bestPathLength = pathLength;
-                    bestPath = candidatePath;
+                    bestScore = score;
                     bestDestination = navHit.position;
                 }
             }
 
-            if (bestPath == null || !agent.SetDestination(bestDestination))
+            if (float.IsPositiveInfinity(bestScore) || !agent.SetDestination(bestDestination))
                 return;
 
             recoveryDestination = bestDestination;

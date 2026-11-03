@@ -8,6 +8,7 @@ using Breakpoint.Core;
 /// Oyun akışı: durumlar, sahne geçişi, zaman sayacı, imleç modu.
 /// Hangi sahneden Play'e basılırsa basılsın otomatik oluşur (test kolaylığı).
 /// </summary>
+// Persistent game flow and scene coordination.
 [RequireComponent(typeof(GameClock))]
 public sealed class GameManager : MonoBehaviour
 {

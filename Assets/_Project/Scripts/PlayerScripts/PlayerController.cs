@@ -406,6 +406,10 @@ public class PlayerController : MonoBehaviour
         effectObject.transform.SetParent(transform, false);
         effectObject.transform.localPosition = new Vector3(0f, .06f, 0f);
         ParticleSystem particles = effectObject.AddComponent<ParticleSystem>();
+        // AddComponent can start the particle system with Unity's default settings
+        // before playOnAwake is disabled below. Clear that initial playback before
+        // changing duration and other main-module properties.
+        particles.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
         ParticleSystem.MainModule main = particles.main;
         main.loop = false;
         main.playOnAwake = false;

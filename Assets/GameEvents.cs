@@ -2,6 +2,7 @@ using System;
 
 namespace Breakpoint.Core
 {
+    // Central event declarations shared across gameplay scripts.
     public static class GameEvents
     {
         // --- EVENT TANIMLARI ---
