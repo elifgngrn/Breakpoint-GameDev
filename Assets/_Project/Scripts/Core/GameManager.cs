@@ -25,6 +25,11 @@ public sealed class GameManager : MonoBehaviour
     public GameClock Clock => clock;
     public bool LasersCleared { get; private set; }
     public bool DoorUnlocked { get; private set; }
+    public LibraryStoryStage StoryStage { get; private set; } = LibraryStoryStage.WakeAtDesk;
+    public int ClearedDebrisCount { get; private set; }
+    public int RobotActivationProgress { get; private set; }
+    public int RobotActivationRequired { get; private set; } = 3;
+    public event Action<LibraryStoryStage> StoryStageChanged;
     public event Action<GameState> StateChanged;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
@@ -91,6 +96,9 @@ public sealed class GameManager : MonoBehaviour
     {
         LasersCleared = false;
         DoorUnlocked = false;
+        ClearedDebrisCount = 0;
+        RobotActivationProgress = 0;
+        SetStoryStage(LibraryStoryStage.WakeAtDesk);
         clock.ResetClock();
         SceneManager.LoadScene(corridorScene);
         BeginPlaying();
@@ -122,8 +130,38 @@ public sealed class GameManager : MonoBehaviour
 
     private void OnCorridorExitReached()
     {
-        if (State != GameState.Playing || !LasersCleared) return;
+        if (State != GameState.Playing || StoryStage != LibraryStoryStage.ReachSecurity) return;
+        SetStoryStage(LibraryStoryStage.PersuadeSecurity);
         SceneManager.LoadScene(doorScene);
+    }
+
+    public void SetStoryStage(LibraryStoryStage stage)
+    {
+        if (StoryStage == stage) return;
+        StoryStage = stage;
+        StoryStageChanged?.Invoke(stage);
+    }
+
+    public void SetRobotActivationProgress(int progress, int required)
+    {
+        RobotActivationRequired = Mathf.Max(1, required);
+        RobotActivationProgress = Mathf.Clamp(progress, 0, RobotActivationRequired);
+        StoryStageChanged?.Invoke(StoryStage);
+    }
+
+    public void RegisterDebrisCleared()
+    {
+        if (StoryStage != LibraryStoryStage.ClearDebris) return;
+        ClearedDebrisCount = Mathf.Min(3, ClearedDebrisCount + 1);
+        if (ClearedDebrisCount >= 3)
+        {
+            SetStoryStage(LibraryStoryStage.ReachSecurity);
+            GameEvents.RaiseNotification("Yol açık. Koridorun sonundaki güvenliğe ilerle.");
+        }
+        else
+        {
+            StoryStageChanged?.Invoke(StoryStage);
+        }
     }
 
     private void OnDialogueStarted()
@@ -141,6 +179,8 @@ public sealed class GameManager : MonoBehaviour
     {
         DoorUnlocked = true;
         clock.StopClock();
+        SetStoryStage(LibraryStoryStage.Complete);
+        Finish(GameState.Won);
     }
 
     private void OnEscapeCompleted() => Finish(GameState.Won);

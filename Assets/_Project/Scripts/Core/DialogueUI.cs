@@ -36,7 +36,8 @@ public class DialogueUI : MonoBehaviour
             sendButton.onClick.AddListener(MesajGonder);
         }
 
-        DiyaloguBaslat();   // panel sahne açılınca zaten görünüyor, durumu da buna eşle
+        if (dialoguePanel != null)
+            dialoguePanel.SetActive(false);
     }
 
     private void CreateCharacterCounter()
@@ -172,7 +173,7 @@ public class DialogueUI : MonoBehaviour
 
     // Çift tıklamayı önlemek için butonu geçici kapat
         if (sendButton != null) sendButton.interactable = false;
-        npcAnswerText.text = $"Kütüphaneci yanıtlıyor... (en fazla {ollamaManager.RequestTimeoutSeconds} sn)";
+        npcAnswerText.text = $"Güvenlik görevlisi düşünüyor... (en fazla {ollamaManager.RequestTimeoutSeconds} sn)";
 
         // Kapı kararı yerel doğrulayıcıdan gelir; Ollama yanıtını beklemez.
         if (dilekceKabulEdildi)
@@ -200,14 +201,14 @@ public class DialogueUI : MonoBehaviour
     // Yanıtın null gelme ihtimaline karşı güvenlik kontrolü
         if (yanit == null)
         {
-            npcAnswerText.text = "Kütüphaneci şu an cevap veremiyor.";
+            npcAnswerText.text = "Güvenlik görevlisi şu an cevap veremiyor.";
             if (sendButton != null) sendButton.interactable = true;
             return;
         }
 
     // Gelen yanıtı ekrana yazdır
         string npcYaniti = string.IsNullOrEmpty(yanit.dialogue)
-            ? "Kütüphaneci cevap verdi ancak mesajı alınamadı."
+            ? "Güvenlik görevlisi cevap verdi ancak mesajı alınamadı."
             : yanit.dialogue;
         npcYaniti = NormalizeQuotesForFont(npcYaniti);
         if (yanit.usedFallback)

@@ -11,7 +11,7 @@ namespace Breakpoint.Robot
     /// Takip hedefi ve şalter etkileşimi aralıklı bir coroutine ile güncellenir.
     /// </summary>
     [RequireComponent(typeof(NavMeshAgent))]
-    public sealed class RobotController : MonoBehaviour
+    public sealed class RobotController : MonoBehaviour, IInteractable
     {
         public enum RobotState
         {
@@ -51,6 +51,47 @@ namespace Breakpoint.Robot
         private float recoveryDeadline;
 
         public RobotState CurrentState => currentState;
+        public bool IsOperational { get; private set; } = true;
+        public string InteractionPrompt => "E · Robotla konuş";
+
+        public void Interact(PlayerController player)
+        {
+            GameEvents.RaiseNotification(currentState == RobotState.MoveToTarget
+                ? "Robot komutu aldı, hedefe ilerliyor."
+                : "Robot hazır. Şaltere bakıp E'ye basarak engeli çözmesini iste.");
+        }
+
+        public void SetOperational(bool operational)
+        {
+            IsOperational = operational;
+            if (agent == null) agent = GetComponent<NavMeshAgent>();
+            if (!operational)
+            {
+                commandedSwitch = null;
+                currentState = RobotState.Idle;
+                if (agent != null && agent.isOnNavMesh) agent.isStopped = true;
+                return;
+            }
+
+            // Art placement or an uneven stair landing can leave the agent a few centimetres
+            // off the baked surface. Reattach through Unity's NavMesh API before issuing paths.
+            if (agent != null && !agent.isOnNavMesh &&
+                NavMesh.SamplePosition(transform.position, out NavMeshHit hit, 4f, agent.areaMask))
+                agent.Warp(hit.position);
+
+            FollowPlayer();
+        }
+
+        public bool HasReachedDestination(Vector3 destination, float tolerance)
+        {
+            if (!IsOperational || agent == null || !agent.isOnNavMesh || agent.pathPending)
+                return false;
+            if (agent.hasPath && agent.pathStatus == NavMeshPathStatus.PathInvalid)
+                return false;
+
+            return Vector3.Distance(transform.position, destination) <= tolerance ||
+                   (agent.hasPath && agent.remainingDistance <= tolerance && agent.velocity.sqrMagnitude < 0.16f);
+        }
 
         private void Awake()
         {
@@ -112,7 +153,7 @@ namespace Breakpoint.Robot
 
             while (true)
             {
-                if (dependenciesValid && agent != null && playerTransform != null)
+                if (dependenciesValid && IsOperational && agent != null && agent.isOnNavMesh && playerTransform != null)
                 {
                     switch (currentState)
                     {
@@ -210,7 +251,7 @@ namespace Breakpoint.Robot
 
             currentState = RobotState.FollowPlayer;
             hasFollowDestination = false;
-            if (agent != null)
+            if (agent != null && agent.isOnNavMesh)
                 agent.isStopped = false;
         }
 

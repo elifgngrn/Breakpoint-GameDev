@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.InputSystem;
@@ -37,6 +38,7 @@ public class PlayerController : MonoBehaviour
     public float yercekimi = -15f;
     private CharacterController controller;
     private Vector3 dususHizi;
+    public float CurrentPlanarSpeed => new Vector3(yatayHiz.x, 0f, yatayHiz.z).magnitude;
 
     [Header("Kamera Ayarları")]
     public Transform oyuncuKamerasi;
@@ -71,6 +73,24 @@ public class PlayerController : MonoBehaviour
             Cursor.lockState = CursorLockMode.Locked;
             Cursor.visible = false;
         }
+    }
+
+    public void PlayWakeUpSequence()
+    {
+        ProceduralHumanoidAnimator animator = GetComponentInChildren<ProceduralHumanoidAnimator>();
+        animator?.PlayWakeUp();
+        if (wakeSequence != null) StopCoroutine(wakeSequence);
+        wakeSequence = StartCoroutine(WakeUpRoutine());
+    }
+
+    private Coroutine wakeSequence;
+
+    private IEnumerator WakeUpRoutine()
+    {
+        SetDialogueActive(true);
+        yield return new WaitForSeconds(1.25f);
+        if (this != null) SetDialogueActive(false);
+        wakeSequence = null;
     }
 
     void Start()
@@ -111,6 +131,13 @@ public class PlayerController : MonoBehaviour
 
         if (GameManager.Instance != null && GameManager.Instance.State != GameState.Playing) return;
 
+        Keyboard keyboard = Keyboard.current;
+        if (keyboard != null && keyboard.eKey.wasPressedThisFrame)
+        {
+            EtkilesimKur();
+            if (isDialogueActive) return;
+        }
+
         // 1. KAMERA DÖNDÜRME (Mouse Look)
         Vector2 mouseDelta = Mouse.current != null ? Mouse.current.delta.ReadValue() : Vector2.zero;
         Vector2 stickLook = Gamepad.current != null ? Gamepad.current.rightStick.ReadValue() : Vector2.zero;
@@ -124,7 +151,6 @@ public class PlayerController : MonoBehaviour
         transform.Rotate(Vector3.up * fareX);
 
         // 2. WASD YÜRÜME
-        Keyboard keyboard = Keyboard.current;
         Vector2 stickMove = Gamepad.current != null ? Gamepad.current.leftStick.ReadValue() : Vector2.zero;
         float x = (keyboard == null ? 0f :
             (keyboard.dKey.isPressed || keyboard.rightArrowKey.isPressed ? 1f : 0f) -
@@ -217,6 +243,30 @@ public class PlayerController : MonoBehaviour
         if (robotCommandPressed)
         {
             RobotaKomutGonder();
+        }
+    }
+
+    private void EtkilesimKur()
+    {
+        if (oyuncuKamerasi == null) return;
+        Ray ray = new Ray(oyuncuKamerasi.position, oyuncuKamerasi.forward);
+        // Third-person camera sits behind the avatar; include that offset in the usable reach.
+        if (!Physics.Raycast(ray, out RaycastHit hit, 7.5f)) return;
+
+        IInteractable interactable = hit.collider.GetComponentInParent<IInteractable>();
+        if (interactable != null)
+        {
+            interactable.Interact(this);
+            return;
+        }
+
+        // Existing scenes mark the robot's switch with the Salter tag.
+        if (hit.collider.CompareTag("Salter") && robotController != null)
+        {
+            bool accepted = robotController.MoveToSwitch(hit.collider.transform);
+            GameEvents.RaiseNotification(accepted
+                ? "Robot şaltere doğru ilerliyor."
+                : "Robot şaltere ulaşamıyor; NavMesh bağlantısını kontrol edin.");
         }
     }
 
