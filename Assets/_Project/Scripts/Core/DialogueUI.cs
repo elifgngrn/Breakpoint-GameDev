@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 using TMPro;
 using UnityEngine.UI;
@@ -168,30 +169,15 @@ public class DialogueUI : MonoBehaviour
         string mesaj = playerInputField.text;
         if (string.IsNullOrWhiteSpace(mesaj)) return;
 
-        bool dilekceKabulEdildi = PetitionValidator.Validate(mesaj, petitionRules, out string dilekceGeriBildirimi);
+        bool yerelOnKontrolGecti = PetitionValidator.Validate(mesaj, petitionRules, out string dilekceGeriBildirimi);
 
     // Çift tıklamayı önlemek için butonu geçici kapat
         if (sendButton != null) sendButton.interactable = false;
         npcAnswerText.text = $"Kütüphaneci yanıtlıyor... (en fazla {ollamaManager.RequestTimeoutSeconds} sn)";
 
-        // Kapı kararı yerel doğrulayıcıdan gelir; Ollama yanıtını beklemez.
-        if (dilekceKabulEdildi)
-        {
-            var door = FindAnyObjectByType<DoorController>();
-            if (door != null)
-            {
-                door.UnlockAndOpenDoor();
-                GameEvents.RaiseDoorUnlocked();
-            }
-            else
-            {
-                Debug.LogWarning("DialogueUI: Sahne içinde DoorController bulunamadı; kapı açılamadı.", this);
-            }
-        }
-
-    // Mesajı Ollama'ya gönder ve yanıt bekle
+        // Yapılandırılmış LLM kararı yerel dilekçe kurallarıyla ayrıca doğrulanır.
         var manager = ollamaManager;
-        var yanit = await manager.SendPromptToOllama(mesaj, dilekceKabulEdildi);
+        var yanit = await manager.SendPromptToOllama(mesaj, yerelOnKontrolGecti, dilekceGeriBildirimi);
 
         // Sahne değişmiş veya UI kapatılmış olabilirken async istek tamamlanabilir.
         if (this == null || npcAnswerText == null || playerInputField == null)
@@ -206,20 +192,48 @@ public class DialogueUI : MonoBehaviour
         }
 
     // Gelen yanıtı ekrana yazdır
-        string npcYaniti = string.IsNullOrEmpty(yanit.dialogue)
-            ? "Kütüphaneci cevap verdi ancak mesajı alınamadı."
-            : yanit.dialogue;
-        npcYaniti = NormalizeQuotesForFont(npcYaniti);
-        if (yanit.usedFallback)
-            npcYaniti += "\n\nOllama yanıt veremedi; yerel yanıt gösteriliyor.";
+        string npcYaniti = yanit.dialogue;
+        bool unlockRequested = !yanit.usedFallback && yanit.doorDecision == "unlock";
+        bool doorUnlocked = false;
+        if (unlockRequested && !yerelOnKontrolGecti)
+        {
+            Debug.LogWarning("DialogueUI: Ollama unlock kararı verdi ancak dilekçe yerel kuralları karşılamadığı için kapı kilitli kaldı.", this);
+            npcYaniti = "Dilekçe koşulları tamamlanmadığı için kapı kilitli kaldı.";
+        }
+        else if (unlockRequested)
+        {
+            var door = FindAnyObjectByType<DoorController>();
+            if (door != null)
+            {
+                door.UnlockAndOpenDoor();
+                GameEvents.RaiseDoorUnlocked();
+                doorUnlocked = true;
+            }
+            else
+            {
+                Debug.LogWarning("DialogueUI: Sahne içinde DoorController bulunamadı; kapı açılamadı.", this);
+                npcYaniti += "\n\nKapı mekanizmasına ulaşılamadı.";
+            }
+        }
 
-        npcAnswerText.text = dilekceKabulEdildi
-            ? npcYaniti
-            : $"{npcYaniti}\n\n{dilekceGeriBildirimi}";
+        npcYaniti = NormalizeQuotesForFont(npcYaniti);
+        npcAnswerText.text = !doorUnlocked && !yerelOnKontrolGecti && !yanit.usedFallback
+            ? $"{npcYaniti}\n\n{dilekceGeriBildirimi}"
+            : npcYaniti;
 
     // Yeni mesaj yazılabilmesi için alanı temizle ve butonu aç
         playerInputField.text = "";
         if (sendButton != null) sendButton.interactable = true;
+
+        if (doorUnlocked)
+            StartCoroutine(CloseDialogueAfterUnlock());
+    }
+
+    private IEnumerator CloseDialogueAfterUnlock()
+    {
+        yield return new WaitForSecondsRealtime(2.5f);
+        if (this != null && dialoguePanel != null && dialoguePanel.activeSelf)
+            DiyaloguBitir();
     }
 
     private static string NormalizeQuotesForFont(string text)

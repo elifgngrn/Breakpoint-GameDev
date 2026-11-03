@@ -2381,11 +2381,30 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerController
   "y\xFCr\xFCmeHizi": 5
+  kosmaCarpani: 1.6
+  maksimumDayaniklilik: 5
+  kosmaEnerjiTuketimi: 1
+  dinlenmeEnerjiDolumu: 0.8
+  enerjiDolumGecikmesi: 0.75
+  hizlanma: 14
+  yavaslama: 20
+  havadaHizlanma: 4
+  ziplamaTamponSuresi: 0.15
+  kenarZiplamaSuresi: 0.12
+  adimSesleri: []
+  yurumeAdimAraligi: 0.5
+  kosmaAdimAraligi: 0.32
+  adimSesSeviyesi: 0.65
   ziplamaGucu: 2
   yercekimi: -15
   oyuncuKamerasi: {fileID: 330585546}
   fareHassasiyeti: 2
+  "tersDikeyBak\u0131\u015F": 0
+  normalGorusAcisi: 60
+  kosmaGorusAcisi: 68
+  gorusGecisHizi: 8
   elFeneri: {fileID: 1248813150}
+  robotController: {fileID: 0}
   komutMenzili: 50
 --- !u!143 &1808777083
 CharacterController:
@@ -2746,6 +2765,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::OllamaManager
   ollamaUrl: http://localhost:11434/api/generate
   modelName: llama3.2
+  requestTimeoutSeconds: 60
+  temperature: 0.1
+  maxResponseTokens: 80
 --- !u!1 &2081789484
 GameObject:
   m_ObjectHideFlags: 0
