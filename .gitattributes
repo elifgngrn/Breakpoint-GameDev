@@ -12,3 +12,4 @@
 *.wav binary
 *.mp3 binary
 *.ogg binary
+Assets/Scenes/Level_Corridor.unity -text
