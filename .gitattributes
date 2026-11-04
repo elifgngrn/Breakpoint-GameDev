@@ -1,11 +1,15 @@
 * text=auto
 *.cs text eol=lf
 *.meta text eol=lf
-*.unity text eol=lf
-*.prefab text eol=lf
-*.mat text eol=lf
-*.asset text eol=lf
 .githooks/* text eol=lf
+
+# Unity scenes/prefabs/materials/assets can be BINARY (e.g. Level_Corridor.unity,
+# NavMesh-*.asset). Never normalize line endings on them: CRLF->LF corrupts them.
+*.unity -text
+*.prefab -text
+*.mat -text
+*.asset -text
+
 *.png binary
 *.jpg binary
 *.fbx binary
