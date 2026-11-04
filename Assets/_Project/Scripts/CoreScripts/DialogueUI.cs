@@ -22,7 +22,11 @@ public class DialogueUI : MonoBehaviour
     private TMP_Text characterCounter;
     private TMP_Text petitionHint;
     private bool greetingRequested;
+    private bool requestPending;
     private int responseVersion;
+    private Coroutine waitingRoutine;
+    private AudioSource feedbackAudio;
+    private AudioClip rejectionCue;
 
     private void Awake()
     {
@@ -38,6 +42,12 @@ public class DialogueUI : MonoBehaviour
 
     private void Start()
     {
+        feedbackAudio = GetComponent<AudioSource>();
+        if (feedbackAudio == null) feedbackAudio = gameObject.AddComponent<AudioSource>();
+        feedbackAudio.playOnAwake = false;
+        feedbackAudio.spatialBlend = 0f;
+        rejectionCue = CreateRejectionCue();
+
         if (playerInputField != null && petitionRules != null)
         {
             playerInputField.characterLimit = petitionRules.MaximumLength;
@@ -59,7 +69,7 @@ public class DialogueUI : MonoBehaviour
     private void Update()
     {
         if (dialoguePanel == null || !dialoguePanel.activeInHierarchy) return;
-        if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
+        if (!requestPending && Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
             DiyaloguBitir();
     }
 
@@ -209,12 +219,6 @@ public class DialogueUI : MonoBehaviour
             Debug.LogError("DialogueUI: npcAnswerText Inspector'da atanmamış.", this);
             return;
         }
-        if (ollamaManager == null)
-        {
-            Debug.LogError("DialogueUI: ollamaManager Inspector'da atanmamış.", this);
-            return;
-        }
-
         string mesaj = playerInputField.text;
         if (string.IsNullOrWhiteSpace(mesaj)) return;
         int requestVersion = ++responseVersion;
@@ -222,22 +226,40 @@ public class DialogueUI : MonoBehaviour
         bool yerelOnKontrolGecti = PetitionValidator.Validate(mesaj, petitionRules, out string dilekceGeriBildirimi);
 
     // Çift tıklamayı önlemek için butonu geçici kapat
+        requestPending = true;
         if (sendButton != null) sendButton.interactable = false;
-        npcAnswerText.text = $"Güvenlik görevlisi düşünüyor... (en fazla {ollamaManager.RequestTimeoutSeconds} sn)";
+        playerInputField.interactable = false;
+        int timeout = ollamaManager != null ? ollamaManager.RequestTimeoutSeconds : 0;
+        waitingRoutine = StartCoroutine(AnimateWaiting(requestVersion, timeout));
 
         // Yapılandırılmış LLM kararı yerel dilekçe kurallarıyla ayrıca doğrulanır.
         var manager = ollamaManager;
-        var yanit = await manager.SendPromptToOllama(mesaj, yerelOnKontrolGecti, dilekceGeriBildirimi);
+        NPCResponseData yanit = null;
+        try
+        {
+            if (manager != null)
+                yanit = await manager.SendPromptToOllama(mesaj, yerelOnKontrolGecti, dilekceGeriBildirimi);
+        }
+        catch (System.Exception exception)
+        {
+            Debug.LogWarning($"Diyalog isteği tamamlanamadı: {exception.Message}", this);
+        }
 
         // Sahne değişmiş veya UI kapatılmış olabilirken async istek tamamlanabilir.
         if (this == null || requestVersion != responseVersion || npcAnswerText == null || playerInputField == null)
             return;
 
+        if (waitingRoutine != null) StopCoroutine(waitingRoutine);
+        waitingRoutine = null;
+        requestPending = false;
+        playerInputField.interactable = true;
+
     // Yanıtın null gelme ihtimaline karşı güvenlik kontrolü
         if (yanit == null)
         {
-            npcAnswerText.text = "Güvenlik görevlisi şu an cevap veremiyor.";
+            npcAnswerText.text = "Kütüphaneciye ulaşılamadı. Bağlantıyı kontrol edip yeniden deneyebilirsin.";
             if (sendButton != null) sendButton.interactable = true;
+            PlayDecisionFeedback(false);
             return;
         }
 
@@ -275,13 +297,83 @@ public class DialogueUI : MonoBehaviour
         npcAnswerText.text = !doorUnlocked && !yerelOnKontrolGecti && !yanit.usedFallback
             ? $"{npcYaniti}\n\n{dilekceGeriBildirimi}"
             : npcYaniti;
+        PlayDecisionFeedback(doorUnlocked);
+        if (!doorUnlocked)
+            GameEvents.RaiseNotification(yanit.usedFallback
+                ? "Kütüphaneci yanıt veremedi. Dilekçeni tekrar gönderebilirsin."
+                : "İzin reddedildi. Dilekçeni düzenleyip tekrar deneyebilirsin.");
 
-        // A rejected petition can be revised and sent again.
-        playerInputField.text = "";
-        if (sendButton != null) sendButton.interactable = true;
+        // Reddedilen veya fallback yanıtı alan dilekçe düzenlenip yeniden gönderilebilir.
+        if (doorUnlocked)
+            playerInputField.text = string.Empty;
+        playerInputField.interactable = !doorUnlocked;
+        if (sendButton != null) sendButton.interactable = !doorUnlocked;
 
         if (doorUnlocked)
             StartCoroutine(CloseDialogueAfterUnlock());
+    }
+
+    private IEnumerator AnimateWaiting(int request, int timeoutSeconds)
+    {
+        float elapsed = 0f;
+        int dots = 0;
+        while (requestPending && request == responseVersion)
+        {
+            dots = (dots + 1) % 4;
+            string duration = timeoutSeconds > 0 ? $" · {Mathf.Max(0, timeoutSeconds - Mathf.FloorToInt(elapsed))} sn" : string.Empty;
+            npcAnswerText.text = $"Kütüphaneci yanıt hazırlıyor{new string('.', dots)}{duration}";
+            elapsed += 0.35f;
+            yield return new WaitForSecondsRealtime(0.35f);
+        }
+    }
+
+    private void PlayDecisionFeedback(bool accepted)
+    {
+        if (npcAnswerText == null) return;
+        StopCoroutine(nameof(PulseDecisionText));
+        StartCoroutine(PulseDecisionText(accepted));
+        if (!accepted && feedbackAudio != null && rejectionCue != null)
+            feedbackAudio.PlayOneShot(rejectionCue, 0.45f);
+    }
+
+    private IEnumerator PulseDecisionText(bool accepted)
+    {
+        Color original = npcAnswerText.color;
+        Color accent = accepted ? new Color(0.45f, 1f, 0.67f) : new Color(1f, 0.62f, 0.38f);
+        Transform textTransform = npcAnswerText.transform;
+        Vector3 originalScale = textTransform.localScale;
+        float duration = 0.22f;
+        float elapsed = 0f;
+        while (elapsed < duration)
+        {
+            elapsed += Time.unscaledDeltaTime;
+            float t = Mathf.Clamp01(elapsed / duration);
+            npcAnswerText.color = Color.Lerp(accent, original, t);
+            textTransform.localScale = Vector3.Lerp(originalScale * 1.035f, originalScale, t);
+            yield return null;
+        }
+        npcAnswerText.color = original;
+        textTransform.localScale = originalScale;
+    }
+
+    private static AudioClip CreateRejectionCue()
+    {
+        const int sampleRate = 22050;
+        const float duration = 0.24f;
+        int sampleCount = Mathf.CeilToInt(sampleRate * duration);
+        float[] samples = new float[sampleCount];
+        for (int i = 0; i < sampleCount; i++)
+        {
+            float time = i / (float)sampleRate;
+            float frequency = time < 0.12f ? 220f : 174.61f;
+            float localTime = time < 0.12f ? time : time - 0.12f;
+            float envelope = Mathf.Min(1f, localTime / 0.012f) * Mathf.Clamp01((duration - time) / 0.035f);
+            samples[i] = Mathf.Sin(2f * Mathf.PI * frequency * time) * envelope * 0.2f;
+        }
+
+        AudioClip clip = AudioClip.Create("PetitionRejectedCue", sampleCount, 1, sampleRate, false);
+        clip.SetData(samples, 0);
+        return clip;
     }
 
     private IEnumerator CloseDialogueAfterUnlock()

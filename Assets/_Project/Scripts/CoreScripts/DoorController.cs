@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 using Breakpoint.Core;
 
@@ -11,6 +12,8 @@ namespace Core
     public sealed class DoorController : MonoBehaviour
     {
         [SerializeField] private AudioClip unlockSound;
+        [SerializeField, Min(0.1f)] private float openDuration = 0.7f;
+        [SerializeField, Min(0.1f)] private float openDistance = 3.2f;
 
         private AudioSource audioSource;
         private Collider doorCollider;
@@ -43,7 +46,26 @@ namespace Core
             if (audioSource != null && unlockSound != null)
                 audioSource.PlayOneShot(unlockSound);
 
-            Debug.Log("Kapı açıldı. Kaçışı tamamlamak için kapı trigger alanından geçin.", this);
+            StartCoroutine(SlideDoorOpen());
+            Debug.Log("Kapı açıldı. Kaçışı tamamlamak için çıkıştan geçin.", this);
+        }
+
+        private IEnumerator SlideDoorOpen()
+        {
+            Vector3 start = transform.localPosition;
+            Vector3 end = start + Vector3.right * openDistance;
+            float elapsed = 0f;
+
+            while (elapsed < openDuration)
+            {
+                elapsed += Time.deltaTime;
+                float t = Mathf.Clamp01(elapsed / openDuration);
+                float eased = t * t * (3f - 2f * t);
+                transform.localPosition = Vector3.LerpUnclamped(start, end, eased);
+                yield return null;
+            }
+
+            transform.localPosition = end;
         }
 
         private void OnTriggerEnter(Collider other)

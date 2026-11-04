@@ -166,6 +166,8 @@ public sealed class ClockHUD : MonoBehaviour
                 return "GÖREV 5  ·  GÜVENLİK GÖREVLİSİ\nÇıkışta görevliye yaklaş ve E ile konuş.";
             case LibraryStoryStage.PersuadeSecurity:
                 return "SON GÖREV  ·  İKNA ET\nResmî dilekçeni yaz ve güvenliğe gönder.";
+            case LibraryStoryStage.ReachExit:
+                return "SON GÖREV  ·  ÇIKIŞA İLERLE\nKapı açıldı; çıkıştan geçerek kaçışı tamamla.";
             case LibraryStoryStage.Complete:
                 return "KAÇIŞ TAMAMLANDI\nGüvenlik ikna oldu; kütüphane kapısı açıldı.";
             default:

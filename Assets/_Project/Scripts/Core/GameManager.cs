@@ -175,16 +175,21 @@ public sealed class GameManager : MonoBehaviour
         if (State == GameState.Dialogue) SetState(GameState.Playing);
     }
 
-    // Kapı açıldı: kaçış sekansı sürerken süre işlemesin
+    // Kapı açıldı; süre durur ama oyuncu çıkışa yürüyerek kaçışı tamamlar.
     private void OnDoorUnlocked()
     {
         DoorUnlocked = true;
         clock.StopClock();
+        SetStoryStage(LibraryStoryStage.ReachExit);
+        GameEvents.RaiseNotification("Kapı açıldı. Çıkışa ilerle!");
+    }
+
+    private void OnEscapeCompleted()
+    {
+        if (!DoorUnlocked || State != GameState.Playing) return;
         SetStoryStage(LibraryStoryStage.Complete);
         Finish(GameState.Won);
     }
-
-    private void OnEscapeCompleted() => Finish(GameState.Won);
 
     private void OnTimeExpired()
     {

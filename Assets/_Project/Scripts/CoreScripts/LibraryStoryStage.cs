@@ -8,5 +8,6 @@ public enum LibraryStoryStage
     ClearDebris,
     ReachSecurity,
     PersuadeSecurity,
+    ReachExit,
     Complete
 }

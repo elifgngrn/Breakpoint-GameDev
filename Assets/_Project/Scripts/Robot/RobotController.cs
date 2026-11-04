@@ -44,6 +44,8 @@ namespace Breakpoint.Robot
         private bool dependenciesValid;
         private AudioSource feedbackAudio;
         private AudioClip switchChime;
+        private AudioClip commandChime;
+        private Light sensorLight;
         private Vector3 lastFollowDestination;
         private bool hasFollowDestination;
         private bool recoveryActive;
@@ -142,6 +144,8 @@ namespace Breakpoint.Robot
             feedbackAudio.playOnAwake = false;
             feedbackAudio.spatialBlend = 0f;
             switchChime = CreateSwitchChime();
+            commandChime = CreateCommandChime();
+            CreateSensorLight();
             dependenciesValid = true;
         }
 
@@ -192,11 +196,43 @@ namespace Breakpoint.Robot
             }
         }
 
+        private void Update()
+        {
+            if (sensorLight == null) return;
+
+            Color targetColor;
+            float targetIntensity;
+            switch (currentState)
+            {
+                case RobotState.MoveToTarget:
+                    targetColor = new Color(0.22f, 0.72f, 1f);
+                    targetIntensity = 0.8f;
+                    break;
+                case RobotState.ScanInteract:
+                    targetColor = new Color(1f, 0.66f, 0.22f);
+                    targetIntensity = 2f;
+                    break;
+                case RobotState.FollowPlayer:
+                    targetColor = new Color(0.22f, 0.82f, 1f);
+                    targetIntensity = 0.35f;
+                    break;
+                default:
+                    targetColor = new Color(0.22f, 0.82f, 1f);
+                    targetIntensity = IsOperational ? 0.12f : 0f;
+                    break;
+            }
+
+            sensorLight.color = Color.Lerp(sensorLight.color, targetColor, Time.deltaTime * 8f);
+            sensorLight.intensity = Mathf.MoveTowards(sensorLight.intensity, targetIntensity, Time.deltaTime * 8f);
+        }
+
         /// <summary>Robotu belirli bir dünya hedefine yöneltir.</summary>
         public bool MoveTo(Vector3 destination)
         {
             commandedSwitch = null;
-            return SetDestination(destination);
+            bool accepted = SetDestination(destination);
+            if (accepted) PlayCommandFeedback();
+            return accepted;
         }
 
         /// <summary>Oyuncunun tıkladığı şaltere robotu gönderir ve yaklaşınca etkileştirir.</summary>
@@ -220,6 +256,8 @@ namespace Breakpoint.Robot
                 commandedSwitch = null;
                 return false;
             }
+
+            PlayCommandFeedback();
 
             switchTrialActive = true;
             switchTrialStartPosition = trialStartPosition;
@@ -274,6 +312,29 @@ namespace Breakpoint.Robot
 
             Debug.LogWarning("RobotController: Hedef için NavMesh yolu oluşturulamadı.", this);
             return false;
+        }
+
+        private void CreateSensorLight()
+        {
+            Transform lightAnchor = sensorPoint != null ? sensorPoint : transform;
+            GameObject lightObject = new GameObject("RobotSensorLight");
+            lightObject.transform.SetParent(lightAnchor, false);
+            if (sensorPoint == null)
+                lightObject.transform.localPosition = new Vector3(0f, 0.45f, 0.35f);
+
+            sensorLight = lightObject.AddComponent<Light>();
+            sensorLight.type = LightType.Spot;
+            sensorLight.color = new Color(0.22f, 0.82f, 1f);
+            sensorLight.range = sensorRange;
+            sensorLight.spotAngle = 30f;
+            sensorLight.intensity = 0f;
+            sensorLight.shadows = LightShadows.None;
+        }
+
+        private void PlayCommandFeedback()
+        {
+            if (commandChime != null && feedbackAudio != null)
+                feedbackAudio.PlayOneShot(commandChime, 0.35f);
         }
 
         /// <summary>Özel hedef hareketini bitirip oyuncu takibini yeniden etkinleştirir.</summary>
@@ -625,6 +686,25 @@ namespace Breakpoint.Robot
             }
 
             AudioClip clip = AudioClip.Create("RobotSwitchChime", sampleCount, 1, sampleRate, false);
+            clip.SetData(samples, 0);
+            return clip;
+        }
+
+        private static AudioClip CreateCommandChime()
+        {
+            const int sampleRate = 22050;
+            const float duration = 0.16f;
+            int sampleCount = Mathf.CeilToInt(sampleRate * duration);
+            float[] samples = new float[sampleCount];
+
+            for (int i = 0; i < sampleCount; i++)
+            {
+                float t = i / (float)sampleRate;
+                float envelope = Mathf.Clamp01((duration - t) / 0.045f) * Mathf.Min(1f, t / 0.012f);
+                samples[i] = Mathf.Sin(2f * Mathf.PI * 740f * t) * envelope * 0.16f;
+            }
+
+            AudioClip clip = AudioClip.Create("RobotCommandChime", sampleCount, 1, sampleRate, false);
             clip.SetData(samples, 0);
             return clip;
         }
