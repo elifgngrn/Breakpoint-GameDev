@@ -10,6 +10,7 @@ Kocaeli Üniversitesi Teknoloji Fakültesi Bilişim Sistemleri Mühendisliği B�
 - [Yerel LLM ve diyalog mimarisi](#yerel-llm-ve-diyalog-mimarisi)
 - [Hata yönetimi](#hata-yönetimi)
 - [Kurulum ve çalıştırma](#kurulum-ve-çalıştırma)
+- [Ekran görüntüleri](#ekran-görüntüleri)
 - [Sonuç ve geliştirme alanları](#sonuç-ve-geliştirme-alanları)
 
 ## Proje özeti ve giriş
@@ -174,6 +175,20 @@ Son kitaplık sıraları ahşap bitiş panelleriyle tamamlanır; enkaz alanında
 ## Door sahnesi görsel atmosfer
 
 Kütüphaneci bankosundaki mevcut lamba ve kitaplara ek olarak oyun başlarken düşük poligonlu dilekçe sayfaları, yazı çizgileri, mühür, kalem ve kayıt defteri oluşturulur; evrak alanı masa lambasıyla aydınlatılır. Çıkış kapısının collider konumuna göre büyük, sıcak ışıklı “ÇIKIŞ” tabelası yerleştirilir. Kapı çevresine ahşap eşik ve saçak eklenir; kapı açılınca oyuncunun bulunduğu noktadan eşiğe uzanan zemin okları belirir ve kapının ardında ay ışıklı şehir silueti görünür. Bu ayrıntılar dış model veya görsel dosyası gerektirmez; `DoorSceneDressing` bileşeniyle sahneye eklenir. Door sahnesinin genel aydınlatması daha sıcak ve daha dengeli bir seviyeye ayarlanır.
+
+## Ekran görüntüleri
+
+| Ana menü | Robot ve görev arayüzü |
+|---|---|
+| ![Breakpoint ana menüsü](Assets/_Project/Images/Ekran%20g%C3%B6r%C3%BCnt%C3%BCs%C3%BC%202026-11-05%20174433.png) | ![Robot ve alt kata iniş görevi](Assets/_Project/Images/Ekran%20g%C3%B6r%C3%BCnt%C3%BCs%C3%BC%202026-11-05%20174550.png) |
+
+| Koridor ve güvenlik noktasına yaklaşım | Robotla raf enkazını temizleme |
+|---|---|
+| ![Koridor ve güvenlik noktasına yaklaşım](Assets/_Project/Images/Ekran%20g%C3%B6r%C3%BCnt%C3%BCs%C3%BC%202026-11-05%20174725.png) | ![Robotla raf enkazını temizleme](Assets/_Project/Images/Ekran%20g%C3%B6r%C3%BCnt%C3%BCs%C3%BC%202026-11-05%20174805.png) |
+
+| Kütüphaneciyle dilekçe diyaloğu | Kapı açıldıktan sonraki çıkış |
+|---|---|
+| ![Kütüphaneciyle dilekçe diyaloğu](Assets/_Project/Images/Ekran%20g%C3%B6r%C3%BCnt%C3%BCs%C3%BC%202026-11-05%20174959.png) | ![Kapı açıldıktan sonraki çıkış](Assets/_Project/Images/Ekran%20g%C3%B6r%C3%BCnt%C3%BCs%C3%BC%202026-11-05%20175030.png) |
 
 ## Sonuç ve geliştirme alanları
 
