@@ -246,7 +246,7 @@ public static class LibraryVisualPass
         AddFinalDebrisMarker(root, new Vector3(0f, 0f, 23.0f));
         AddFallenShelfDecor(root, -7.7f, 10.5f, -1f);
         AddFallenShelfDecor(root, 7.65f, 17.6f, 1f);
-        AddFallenShelfDecor(root, -7.7f, 24.0f, 1f);
+        AddSecurityCheckpointDecor(root);
         GameObject guardAsset = AssetDatabase.LoadAssetAtPath<GameObject>(GuardModelPath);
         if (guardAsset != null)
         {
@@ -254,6 +254,70 @@ public static class LibraryVisualPass
             CapsuleCollider trigger = guard.AddComponent<CapsuleCollider>(); trigger.height=1.8f; trigger.radius=.55f; trigger.center=new Vector3(0f,.9f,0f); trigger.isTrigger=true; guard.AddComponent<LibrarianNPC>();
             AddWorldLabel(root, "GÜVENLİK GÖREVLİSİ", new Vector3(0f,2.45f,27.6f),.2f,brass.color);
         }
+    }
+
+    private static void AddSecurityCheckpointDecor(Transform root)
+    {
+        Transform checkpoint = NewGroup("Security_Checkpoint_Transition", root);
+
+        // Finish the final shelf row so the restored aisles resolve cleanly into the guard's checkpoint.
+        foreach (float x in new[] { -9.5f, -6.0f, 6.0f, 9.5f })
+        {
+            GameObject endCap = Cube(checkpoint, "Finished bookcase end panel", new Vector3(x, 1.43f, 27.84f),
+                new Vector3(1.16f, 2.86f, 0.13f), "Wood_Walnut");
+            endCap.GetComponent<Collider>().enabled = true;
+            Cube(checkpoint, "Bookcase end brass crown", new Vector3(x, 2.78f, 27.82f),
+                new Vector3(1.2f, 0.08f, 0.17f), "Brass");
+        }
+
+        // A teal runner with restrained brass edging marks the transition from cleared debris to the checkpoint.
+        GameObject runner = Cube(checkpoint, "Security checkpoint carpet", new Vector3(0f, 0.018f, 27.35f),
+            new Vector3(4.25f, 0.035f, 6.0f), "Teal_Enamel");
+        runner.GetComponent<Collider>().enabled = false;
+        foreach (float x in new[] { -2.03f, 2.03f })
+            Cube(checkpoint, "Carpet brass side inlay", new Vector3(x, 0.041f, 27.35f),
+                new Vector3(0.045f, 0.012f, 5.84f), "Brass");
+        foreach (float z in new[] { 25.0f, 27.0f, 29.0f })
+            Cube(checkpoint, "Carpet brass cross inlay", new Vector3(0f, 0.041f, z),
+                new Vector3(3.95f, 0.012f, 0.035f), "Brass");
+
+        // Decorative double door sits beyond the existing corridor transition trigger and has no blocking collider.
+        const float doorZ = 30.78f;
+        foreach (float x in new[] { -1.78f, 1.78f })
+        {
+            GameObject jamb = Cube(checkpoint, "Exit door walnut jamb", new Vector3(x, 2.8f, doorZ - 0.14f),
+                new Vector3(0.26f, 5.7f, 0.34f), "Wood_Walnut");
+            jamb.GetComponent<Collider>().enabled = false;
+        }
+        GameObject header = Cube(checkpoint, "Exit door walnut header", new Vector3(0f, 5.67f, doorZ - 0.14f),
+            new Vector3(3.82f, 0.3f, 0.34f), "Wood_Walnut");
+        header.GetComponent<Collider>().enabled = false;
+
+        foreach (float x in new[] { -0.77f, 0.77f })
+        {
+            GameObject leaf = Cube(checkpoint, x < 0f ? "Exit door left leaf" : "Exit door right leaf",
+                new Vector3(x, 2.58f, doorZ), new Vector3(1.5f, 5.15f, 0.18f), "Wood_Door_Oak");
+            leaf.GetComponent<Collider>().enabled = false;
+
+            foreach (float y in new[] { 1.18f, 3.72f })
+            {
+                GameObject inset = Cube(checkpoint, "Exit door raised panel", new Vector3(x, y, doorZ - 0.105f),
+                    new Vector3(1.08f, y < 2f ? 1.62f : 1.72f, 0.045f), "Wood_Walnut");
+                inset.GetComponent<Collider>().enabled = false;
+            }
+        }
+
+        foreach (float x in new[] { -0.13f, 0.13f })
+        {
+            GameObject handle = Cube(checkpoint, "Exit door brass pull", new Vector3(x, 2.5f, doorZ - 0.13f),
+                new Vector3(0.055f, 0.42f, 0.07f), "Brass");
+            handle.GetComponent<Collider>().enabled = false;
+        }
+
+        GameObject signPlate = Cube(checkpoint, "Exit door staff plaque", new Vector3(0f, 6.22f, doorZ - 0.34f),
+            new Vector3(2.8f, 0.58f, 0.12f), "Wood_Walnut");
+        signPlate.GetComponent<Collider>().enabled = false;
+        AddWorldLabel(root, "PERSONEL ÇIKIŞI", new Vector3(0f, 6.22f, doorZ - 0.41f), 0.22f, Brass);
     }
 
     private static void AddDebris(Transform root, string name, float x, float z, RobotController robot, string prompt)
@@ -468,7 +532,9 @@ public static class LibraryVisualPass
     {
         Scene scene = EditorSceneManager.OpenScene("Assets/Scenes/Level_Door.unity", OpenSceneMode.Single);
         GameObject root = NewRoot(scene);
+        root.AddComponent<DoorSceneDressing>();
         SetLibraryLighting(root.transform);
+        SetDoorSceneLighting(root.transform);
         ApplyMaterial("Plane", "Floor");
         AddDoorLobby(root.transform);
         AddLibraryArchitecture(root.transform);
@@ -565,6 +631,7 @@ public static class LibraryVisualPass
             AssetDatabase.CreateFolder("Assets/_Project/Materials", "LibraryArt");
         }
         MaterialAsset("Wood_Walnut", Walnut);
+        MaterialAsset("Wood_Door_Oak", new Color(0.28f, 0.15f, 0.082f));
         MaterialAsset("Wall_Cream", Cream);
         MaterialAsset("Brass", Brass, true);
         MaterialAsset("Teal_Enamel", Teal);
@@ -652,6 +719,7 @@ public static class LibraryVisualPass
             case "Wall": return "Wall_Cream";
             case "Laser": return "Laser_Cyan";
             case "Brass": return "Brass";
+            case "Wood_Door_Oak": return "Wood_Door_Oak";
             default: return "Wood_Walnut";
         }
     }
@@ -756,6 +824,23 @@ public static class LibraryVisualPass
         key.color = new Color(1f, 0.83f, 0.62f);
         key.intensity = 1.25f;
         key.shadows = LightShadows.Soft;
+    }
+
+    private static void SetDoorSceneLighting(Transform root)
+    {
+        RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Flat;
+        RenderSettings.ambientLight = new Color(0.29f, 0.255f, 0.22f);
+        RenderSettings.ambientIntensity = 0.95f;
+        RenderSettings.fog = false;
+
+        foreach (Light light in root.GetComponentsInChildren<Light>(true))
+        {
+            if (light.type != LightType.Directional)
+                continue;
+
+            light.color = new Color(1f, 0.79f, 0.59f);
+            light.intensity = 0.95f;
+        }
     }
 
     private static void AddGuardToCorridor(Transform root)

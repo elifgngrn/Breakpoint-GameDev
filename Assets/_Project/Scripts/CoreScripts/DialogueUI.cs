@@ -21,10 +21,12 @@ public class DialogueUI : MonoBehaviour
     [SerializeField] private PetitionRules petitionRules;
     private TMP_Text characterCounter;
     private TMP_Text petitionHint;
+    private TMP_Text controlsHint;
     private bool greetingRequested;
     private bool requestPending;
     private int responseVersion;
     private Coroutine waitingRoutine;
+    private Coroutine dialogueRevealRoutine;
     private AudioSource feedbackAudio;
     private AudioClip rejectionCue;
 
@@ -62,6 +64,8 @@ public class DialogueUI : MonoBehaviour
             sendButton.onClick.AddListener(MesajGonder);
         }
 
+        CreateControlsHint();
+
         if (dialoguePanel != null)
             dialoguePanel.SetActive(false);
     }
@@ -69,8 +73,31 @@ public class DialogueUI : MonoBehaviour
     private void Update()
     {
         if (dialoguePanel == null || !dialoguePanel.activeInHierarchy) return;
-        if (!requestPending && Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
+
+        Keyboard keyboard = Keyboard.current;
+        Gamepad gamepad = Gamepad.current;
+        bool closePressed = (keyboard != null && keyboard.escapeKey.wasPressedThisFrame) ||
+            (gamepad != null && gamepad.buttonEast.wasPressedThisFrame);
+        if (!requestPending && closePressed)
+        {
             DiyaloguBitir();
+            return;
+        }
+
+        bool submitPressed = (keyboard != null &&
+            (keyboard.enterKey.wasPressedThisFrame || keyboard.numpadEnterKey.wasPressedThisFrame)) ||
+            (gamepad != null && gamepad.buttonSouth.wasPressedThisFrame);
+        if (!requestPending && submitPressed)
+        {
+            if (dialogueRevealRoutine != null)
+            {
+                RevealCurrentTextImmediately();
+                return;
+            }
+
+            if (playerInputField != null && !string.IsNullOrWhiteSpace(playerInputField.text))
+                MesajGonder();
+        }
     }
 
     private void CreateCharacterCounter()
@@ -123,7 +150,7 @@ public class DialogueUI : MonoBehaviour
         rect.anchorMin = new Vector2(0.5f, 0.5f);
         rect.anchorMax = new Vector2(0.5f, 0.5f);
         rect.pivot = new Vector2(0.5f, 0.5f);
-        rect.anchoredPosition = new Vector2(0f, -91f);
+        rect.anchoredPosition = new Vector2(0f, -82f);
         rect.sizeDelta = new Vector2(720f, 22f);
 
         petitionHint = hintObject.GetComponent<TextMeshProUGUI>();
@@ -133,6 +160,30 @@ public class DialogueUI : MonoBehaviour
         petitionHint.fontSize = 13f;
         petitionHint.alignment = TextAlignmentOptions.Center;
         petitionHint.raycastTarget = false;
+    }
+
+    private void CreateControlsHint()
+    {
+        if (dialoguePanel == null) return;
+
+        var hintObject = new GameObject("DialogueControlsHint", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+        hintObject.transform.SetParent(dialoguePanel.transform, false);
+        var rect = (RectTransform)hintObject.transform;
+        rect.anchorMin = new Vector2(0.5f, 0.5f);
+        rect.anchorMax = new Vector2(0.5f, 0.5f);
+        rect.pivot = new Vector2(0.5f, 0.5f);
+        rect.anchoredPosition = new Vector2(0f, -102f);
+        rect.sizeDelta = new Vector2(720f, 14f);
+
+        controlsHint = hintObject.GetComponent<TextMeshProUGUI>();
+        controlsHint.font = npcAnswerText != null
+            ? npcAnswerText.font
+            : playerInputField != null && playerInputField.textComponent != null ? playerInputField.textComponent.font : null;
+        controlsHint.fontSize = 11f;
+        controlsHint.alignment = TextAlignmentOptions.Center;
+        controlsHint.color = new Color(0.72f, 0.8f, 0.84f, 0.85f);
+        controlsHint.text = "Enter / A: Yazıyı göster · Tekrar: Gönder     Esc / B: Kapat";
+        controlsHint.raycastTarget = false;
     }
 
     private void OnDestroy()
@@ -177,17 +228,18 @@ public class DialogueUI : MonoBehaviour
         npcAnswerText.text = "Güvenlik görevlisi düşünüyor...";
         if (ollamaManager == null)
         {
-            npcAnswerText.text = "İyi akşamlar. Çıkış için dilekçenizi iletir misiniz?";
+            ShowNpcText("İyi akşamlar. Çıkış için dilekçenizi iletir misiniz?");
             return;
         }
 
         NPCResponseData response = await ollamaManager.GenerateGreetingAsync();
         if (this == null || version != responseVersion || npcAnswerText == null || dialoguePanel == null || !dialoguePanel.activeInHierarchy)
             return;
-        npcAnswerText.text = response == null || string.IsNullOrWhiteSpace(response.dialogue)
+        string greeting = response == null || string.IsNullOrWhiteSpace(response.dialogue)
             ? "İyi akşamlar. Çıkış için dilekçenizi iletir misiniz?"
             : NormalizeQuotesForFont(response.dialogue) +
               (response.usedFallback ? "\n\nYerel yanıt gösteriliyor." : string.Empty);
+        ShowNpcText(greeting);
     }
 
     public void DiyaloguBitir()
@@ -196,6 +248,11 @@ public class DialogueUI : MonoBehaviour
         {
             Debug.LogError("DialogueUI: dialoguePanel Inspector'da atanmamış.", this);
             return;
+        }
+        if (dialogueRevealRoutine != null)
+        {
+            StopCoroutine(dialogueRevealRoutine);
+            dialogueRevealRoutine = null;
         }
         dialoguePanel.SetActive(false);
         GameEvents.RaiseDialogueEnded(); 
@@ -208,6 +265,8 @@ public class DialogueUI : MonoBehaviour
 
     private async void MesajGonder()
     {
+        if (requestPending) return;
+
         // Her referans kullanılmadan önce doğrulanır; eksik UI/servis oyunu düşürmez.
         if (playerInputField == null)
         {
@@ -227,6 +286,12 @@ public class DialogueUI : MonoBehaviour
 
     // Çift tıklamayı önlemek için butonu geçici kapat
         requestPending = true;
+        if (dialogueRevealRoutine != null)
+        {
+            StopCoroutine(dialogueRevealRoutine);
+            dialogueRevealRoutine = null;
+        }
+        npcAnswerText.maxVisibleCharacters = int.MaxValue;
         if (sendButton != null) sendButton.interactable = false;
         playerInputField.interactable = false;
         int timeout = ollamaManager != null ? ollamaManager.RequestTimeoutSeconds : 0;
@@ -294,9 +359,10 @@ public class DialogueUI : MonoBehaviour
             }
         }
 
-        npcAnswerText.text = !doorUnlocked && !yerelOnKontrolGecti && !yanit.usedFallback
+        string finalResponse = !doorUnlocked && !yerelOnKontrolGecti && !yanit.usedFallback
             ? $"{npcYaniti}\n\n{dilekceGeriBildirimi}"
             : npcYaniti;
+        ShowNpcText(finalResponse);
         PlayDecisionFeedback(doorUnlocked);
         if (!doorUnlocked)
             GameEvents.RaiseNotification(yanit.usedFallback
@@ -325,6 +391,53 @@ public class DialogueUI : MonoBehaviour
             elapsed += 0.35f;
             yield return new WaitForSecondsRealtime(0.35f);
         }
+    }
+
+    private void ShowNpcText(string text)
+    {
+        if (npcAnswerText == null) return;
+        if (dialogueRevealRoutine != null)
+            StopCoroutine(dialogueRevealRoutine);
+
+        npcAnswerText.text = text;
+        npcAnswerText.maxVisibleCharacters = 0;
+        dialogueRevealRoutine = StartCoroutine(RevealNpcText());
+    }
+
+    private IEnumerator RevealNpcText()
+    {
+        const float charactersPerSecond = 48f;
+        npcAnswerText.ForceMeshUpdate();
+        int characterCount = npcAnswerText.textInfo.characterCount;
+        if (characterCount == 0)
+        {
+            npcAnswerText.maxVisibleCharacters = int.MaxValue;
+            dialogueRevealRoutine = null;
+            yield break;
+        }
+
+        float elapsed = 0f;
+        while (npcAnswerText.maxVisibleCharacters < characterCount)
+        {
+            elapsed += Time.unscaledDeltaTime;
+            npcAnswerText.maxVisibleCharacters = Mathf.Min(characterCount, Mathf.CeilToInt(elapsed * charactersPerSecond));
+            yield return null;
+        }
+
+        npcAnswerText.maxVisibleCharacters = int.MaxValue;
+        dialogueRevealRoutine = null;
+    }
+
+    private void RevealCurrentTextImmediately()
+    {
+        if (dialogueRevealRoutine != null)
+        {
+            StopCoroutine(dialogueRevealRoutine);
+            dialogueRevealRoutine = null;
+        }
+
+        if (npcAnswerText != null)
+            npcAnswerText.maxVisibleCharacters = int.MaxValue;
     }
 
     private void PlayDecisionFeedback(bool accepted)
@@ -379,6 +492,9 @@ public class DialogueUI : MonoBehaviour
     private IEnumerator CloseDialogueAfterUnlock()
     {
         yield return new WaitForSecondsRealtime(2.5f);
+        while (dialogueRevealRoutine != null)
+            yield return null;
+        yield return new WaitForSecondsRealtime(1f);
         if (this != null && dialoguePanel != null && dialoguePanel.activeSelf)
             DiyaloguBitir();
     }

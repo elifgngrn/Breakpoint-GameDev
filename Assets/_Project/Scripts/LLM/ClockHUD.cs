@@ -3,12 +3,27 @@ using UnityEngine.UI;
 using UnityEngine;
 using System.Collections;
 using Breakpoint.Core;
+using Breakpoint.Robot;
 
 public sealed class ClockHUD : MonoBehaviour
 {
     [SerializeField] private TMP_Text label;
+    [Header("Kapı Sahnesi Ortam Sesleri")]
+    [SerializeField] private AudioClip roomToneClip;
+    [SerializeField] private AudioClip clockTickClip;
+    [SerializeField] private Transform clockAudioPoint;
+    [SerializeField, Range(0f, 1f)] private float roomToneVolume = 0.14f;
+    [SerializeField, Range(0f, 1f)] private float clockTickVolume = 0.24f;
     private TMP_Text objectiveLabel;
     private GameObject objectivePanel;
+    private GameObject robotStatusPanel;
+    private TMP_Text robotStatusLabel;
+    private Image robotStatusDot;
+    private RobotController robotController;
+    private AudioSource roomToneSource;
+    private AudioSource clockTickSource;
+    private GameObject clockAudioObject;
+    private bool doorAudioPaused;
     private TMP_Text notificationLabel;
     private CanvasGroup notificationGroup;
     private Coroutine notificationRoutine;
@@ -23,7 +38,9 @@ public sealed class ClockHUD : MonoBehaviour
 
         ConfigureClockLabel();
         CreateObjectivePanel();
+        CreateRobotStatusPanel();
         CreateNotification();
+        CreateDoorSceneAudio();
     }
 
     private void Update()
@@ -32,15 +49,159 @@ public sealed class ClockHUD : MonoBehaviour
         if (label == null || gm == null || gm.Clock == null) return;
 
         bool showHud = gm.State != GameState.Won && gm.State != GameState.Lost;
+        UpdateDoorAudioPause(gm.State == GameState.Paused || gm.State == GameState.Won || gm.State == GameState.Lost);
         if (label.gameObject.activeSelf != showHud)
             label.gameObject.SetActive(showHud);
         if (objectivePanel != null && objectivePanel.activeSelf != showHud)
             objectivePanel.SetActive(showHud);
+        UpdateRobotStatus(showHud);
         if (!showHud) return;
 
         label.text = gm.Clock.Formatted;
         if (objectiveLabel != null)
             objectiveLabel.text = GetObjectiveText(gm);
+    }
+
+    private void CreateDoorSceneAudio()
+    {
+        if (roomToneClip != null)
+        {
+            roomToneSource = gameObject.AddComponent<AudioSource>();
+            roomToneSource.clip = roomToneClip;
+            roomToneSource.loop = true;
+            roomToneSource.playOnAwake = false;
+            roomToneSource.spatialBlend = 0f;
+            roomToneSource.volume = roomToneVolume;
+            roomToneSource.Play();
+        }
+
+        if (clockTickClip != null)
+        {
+            clockAudioObject = new GameObject("DeskClockAudio");
+            clockAudioObject.transform.position = clockAudioPoint != null
+                ? clockAudioPoint.position
+                : new Vector3(3.55f, 1.35f, 2.7f);
+
+            clockTickSource = clockAudioObject.AddComponent<AudioSource>();
+            clockTickSource.clip = clockTickClip;
+            clockTickSource.loop = true;
+            clockTickSource.playOnAwake = false;
+            clockTickSource.spatialBlend = 1f;
+            clockTickSource.rolloffMode = AudioRolloffMode.Linear;
+            clockTickSource.minDistance = 1.2f;
+            clockTickSource.maxDistance = 8f;
+            clockTickSource.dopplerLevel = 0f;
+            clockTickSource.volume = clockTickVolume;
+            clockTickSource.Play();
+        }
+    }
+
+    private void UpdateDoorAudioPause(bool shouldPause)
+    {
+        if (doorAudioPaused == shouldPause) return;
+
+        if (shouldPause)
+        {
+            roomToneSource?.Pause();
+            clockTickSource?.Pause();
+        }
+        else
+        {
+            roomToneSource?.UnPause();
+            clockTickSource?.UnPause();
+        }
+
+        doorAudioPaused = shouldPause;
+    }
+
+    private void CreateRobotStatusPanel()
+    {
+        Canvas canvas = label.canvas;
+        if (canvas == null) return;
+
+        robotStatusPanel = new GameObject("RobotStatusPanel", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        robotStatusPanel.transform.SetParent(canvas.transform, false);
+        RectTransform panelRect = (RectTransform)robotStatusPanel.transform;
+        panelRect.anchorMin = new Vector2(1f, 1f);
+        panelRect.anchorMax = new Vector2(1f, 1f);
+        panelRect.pivot = new Vector2(1f, 1f);
+        panelRect.sizeDelta = new Vector2(260f, 54f);
+        panelRect.anchoredPosition = new Vector2(-24f, -84f);
+
+        Image panelImage = robotStatusPanel.GetComponent<Image>();
+        panelImage.color = new Color(0.035f, 0.055f, 0.075f, 0.88f);
+        panelImage.raycastTarget = false;
+
+        GameObject dotObject = new GameObject("StatusDot", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        dotObject.transform.SetParent(robotStatusPanel.transform, false);
+        RectTransform dotRect = (RectTransform)dotObject.transform;
+        dotRect.anchorMin = new Vector2(0f, 0.5f);
+        dotRect.anchorMax = new Vector2(0f, 0.5f);
+        dotRect.pivot = new Vector2(0f, 0.5f);
+        dotRect.anchoredPosition = new Vector2(16f, 0f);
+        dotRect.sizeDelta = new Vector2(12f, 12f);
+        robotStatusDot = dotObject.GetComponent<Image>();
+        robotStatusDot.color = new Color(0.3f, 0.78f, 1f);
+        robotStatusDot.raycastTarget = false;
+
+        GameObject textObject = new GameObject("RobotStatusText", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+        textObject.transform.SetParent(robotStatusPanel.transform, false);
+        RectTransform textRect = (RectTransform)textObject.transform;
+        textRect.anchorMin = Vector2.zero;
+        textRect.anchorMax = Vector2.one;
+        textRect.offsetMin = new Vector2(38f, 5f);
+        textRect.offsetMax = new Vector2(-10f, -5f);
+        robotStatusLabel = textObject.GetComponent<TextMeshProUGUI>();
+        robotStatusLabel.font = label.font;
+        robotStatusLabel.fontSize = 15f;
+        robotStatusLabel.color = Color.white;
+        robotStatusLabel.alignment = TextAlignmentOptions.MidlineLeft;
+        robotStatusLabel.raycastTarget = false;
+    }
+
+    private void UpdateRobotStatus(bool showHud)
+    {
+        if (robotStatusPanel == null) return;
+        if (robotController == null)
+            robotController = FindAnyObjectByType<RobotController>();
+
+        bool show = showHud && robotController != null;
+        if (robotStatusPanel.activeSelf != show)
+            robotStatusPanel.SetActive(show);
+        if (!show) return;
+
+        string stateText;
+        Color stateColor;
+        if (!robotController.IsOperational)
+        {
+            stateText = "Devre dışı";
+            stateColor = new Color(0.65f, 0.68f, 0.72f);
+        }
+        else
+        {
+            switch (robotController.CurrentState)
+            {
+                case RobotController.RobotState.MoveToTarget:
+                    stateText = "Hedefe ilerliyor";
+                    stateColor = new Color(0.32f, 0.78f, 1f);
+                    break;
+                case RobotController.RobotState.ScanInteract:
+                    stateText = "Şalteri tarıyor";
+                    stateColor = new Color(1f, 0.68f, 0.28f);
+                    break;
+                case RobotController.RobotState.FollowPlayer:
+                    stateText = "Oyuncuyu takip ediyor";
+                    stateColor = new Color(0.34f, 0.9f, 0.76f);
+                    break;
+                default:
+                    stateText = "Beklemede";
+                    stateColor = new Color(0.84f, 0.86f, 0.9f);
+                    break;
+            }
+        }
+
+        robotStatusLabel.text = $"ROBOT  ·  {stateText}";
+        robotStatusDot.color = stateColor;
     }
 
     private void ConfigureClockLabel()

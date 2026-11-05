@@ -1,25 +1,22 @@
 # Breakpoint – Vize Haftası Kütüphane Firarı
 
-Kocaeli Üniversitesi Teknoloji Fakültesi Bilişim Sistemleri Mühendisliği Bölümü Yazılım Geliştirme Laboratuvarı I dersi kapsamında geliştirilen, Unity tabanlı macera ve yapay zekâ prototipidir.
-
-> **Durum notu:** Kütüphaneci yerel Ollama modelinden hem diyalog metni hem yapılandırılmış `doorDecision` (`unlock` / `keep_locked`) üretmesini ister. Kapı, yalnızca Ollama geçerli `unlock` kararı verdiğinde ve dilekçe yerel kurallardan geçtiğinde açılır. Böylece modelin yanlışlıkla verdiği kabul kararı eksik dilekçeyi geçiremez. Bağlantı veya JSON biçim hatasında kapı kilitli kalır. Ollama isteği varsayılan 60 saniyede zaman aşımına uğrar. Robot ve canlı diyalog test sonuçları ölçümden sonra rapora eklenmelidir.
+Kocaeli Üniversitesi Teknoloji Fakültesi Bilişim Sistemleri Mühendisliği Bölümü Yazılım Geliştirme Laboratuvarı I dersi kapsamında geliştirilen Unity tabanlı macera oyunu prototipidir.
 
 ## İçindekiler
 
 - [Proje özeti](#proje-özeti-ve-giriş)
 - [Mimari ve OOP tasarımı](#mimari-ve-oop-tasarımı)
-- [Otonom AI kahraman](#otonom-ai-kahraman)
+- [Robot ve oyuncu kontrolleri](#robot-ve-oyuncu-kontrolleri)
 - [Yerel LLM ve diyalog mimarisi](#yerel-llm-ve-diyalog-mimarisi)
-- [Hata yönetimi ve resiliency](#hata-yönetimi-ve-resiliency)
+- [Hata yönetimi](#hata-yönetimi)
 - [Kurulum ve çalıştırma](#kurulum-ve-çalıştırma)
-- [Ekran görüntüleri](#oyun-içi-ekran-görüntüleri-ve-arayüz)
-- [Sonuç ve gelecek çalışmalar](#sonuç-sınırlılıklar-ve-gelecek-çalışmalar)
+- [Sonuç ve geliştirme alanları](#sonuç-ve-geliştirme-alanları)
 
 ## Proje özeti ve giriş
 
-Vize haftasında gece boyunca kütüphanede çalışan bir mühendislik öğrencisi, binanın kilitlenmesiyle içeride mahsur kalır. Oyuncu, otonom companion robotunun yardımıyla lazer barikatını devre dışı bırakıp çıkışa ulaşmaya çalışır. Çıkış kapısında karşısına çıkan kuralcı Nöbetçi Kütüphaneci’ye serbest metinle bir mazeret sunar. Yerel dil modeli, yapılandırılmış diyalog ve kapı kararını üretir.
+Vize haftasında gece boyunca kütüphanede çalışan bir mühendislik öğrencisi, binanın kilitlenmesiyle içeride mahsur kalır. Oyuncu, yardımcı robotuyla lazer barikatını devre dışı bırakıp çıkışa ulaşmaya çalışır. Çıkış kapısında karşısına çıkan kuralcı Nöbetçi Kütüphaneci’ye serbest metinle mazeret sunar. Yerel dil modeli diyalog yanıtını ve kapı kararını üretir.
 
-Projenin amacı; Unity’de sahne ve oyun durumu yönetimini, NavMesh tabanlı otonom hareketi, algılayıcılarla etkileşimi, olay tabanlı bileşen iletişimini ve yerel bir LLM ile asenkron etkileşimi tek bir oynanabilir senaryoda birleştirmektir. Minimum oyun döngüsü şöyledir:
+Projenin amacı; Unity’de sahne ve oyun durumu yönetimini, NavMesh tabanlı otonom hareketi, algılayıcılarla etkileşimi, olay tabanlı bileşen iletişimini ve yerel dil modeliyle asenkron etkileşimi tek bir oynanabilir senaryoda birleştirmektir. Temel oyun döngüsü şöyledir:
 
 1. Oyuncu koridor bölümünde robotun şaltere gitmesini sağlar.
 2. Robot NavMesh üzerinde hedefe ilerler, Raycast ile şalteri algılar ve lazerleri kapatır.
@@ -32,7 +29,7 @@ Projenin amacı; Unity’de sahne ve oyun durumu yönetimini, NavMesh tabanlı o
 | Üye | Sorumluluk |
 |---|---|
 | **Sütlaç** | Fiziksel dünya ve robot ajanı: NavMesh, sensörler ve koridor bölümü |
-| **Tiramisu** | Yapay zekâ: yerel LLM/Ollama entegrasyonu, JSON diyalog ve asenkron C# akışı; kapı bölümü |
+| **Tiramisu** | Diyalog sistemi, JSON yanıt akışı ve kapı bölümü |
 
 ## Mimari ve OOP tasarımı
 
@@ -63,7 +60,7 @@ Kod, `Assets/_Project/Scripts` altında sorumluluklarına göre `Core`, `LLM`, `
 
 Bu ilkeler, mevcut kodun gözlemlenebilir yapısına göre açıklanmıştır; her sınıf için bağımsız arayüz veya dependency injection altyapısı bulunduğu iddia edilmemektedir.
 
-## Otonom AI kahraman
+## Robot ve oyuncu kontrolleri
 
 Robot `NavMeshAgent` ile zemine bake edilmiş NavMesh üzerinde yol bulur. Takip ve FSM güncellemeleri 0,15 saniyelik coroutine ile yürütülür. Takip mesafesi doğrudan `Vector3.Distance` ile ölçülür; durma mesafesi 1,8 birimdir. Oyuncu şaltere tıklarsa `PlayerController`, `Salter` etiketli hedefi doğrudan robota iletir. Robot hedefe yaklaşınca şalteri çalıştırır; normal hedeflerde `sensorPoint` üzerinden ileri raycast kullanılır. Tam yol bulunamazsa robot kısmi yolun erişilebilir ucuna ilerler. Koridor sahnesinde zemin üzerindeki NavMesh yüzeyi kullanılmalı; Robot altındaki eski ikinci `NavMeshSurface` devre dışıdır.
 
@@ -76,6 +73,8 @@ Kazanma ve kaybetme ekranlarında geçen oyun süresi gösterilir; kazanma süre
 Duraklatma menüsünde gamepad ile D-pad/sol çubuk seçenekleri değiştirir; sol/sağ ses ve fare hassasiyetini ayarlar, A/× ters bakış, tam ekran ve titreşim seçeneklerini değiştirir. “Varsayılan Ayarları Sıfırla” tüm tercihleri başlangıç değerlerine döndürür. Ana menüye dönme ve yeniden başlatma için onay gerekir. B/○ oyuna döner.
 
 Saat göstergesinin yanında hedef paneli bulunur. Şalter devre dışı bırakılınca hedef çıkışa ulaşmak olarak değişir; kapı sahnesinde dilekçe ve çıkış adımlarını gösterir.
+
+Robot için HUD'da renk kodlu bir durum göstergesi bulunur: devre dışı, takipte, hedefe ilerliyor, şalteri tarıyor ve beklemede durumları oyun sırasında görünür.
 
 ### Robot FSM akışı
 
@@ -94,29 +93,13 @@ graph TD
     E -->|Yeni hedef komutu| C
 ```
 
-> **Uygulama ayrıntısı:** Şaltere tıklama `RobotController.MoveToSwitch` metoduna, yürünebilir zemine tıklama `RobotController.MoveTo` metoduna iletilir. Robot şalter denemesi başlatıldığında ve tamamlandığında Console'a `NAVMESH_SWITCH_TRIAL` kaydı yazar; kayıt başlangıç/bitiş koordinatı, hedef, NavMesh yol durumu, sonuç ve süreyi içerir. Aşağıdaki tablo gerçek Unity denemelerinden elde edilen loglarla doldurulmalıdır.
-
-### Beş başlangıç noktasından yol bulma ve şaltere erişim testi
-
-| Deneme | Robot başlangıç noktası (x, y, z) | NavMesh yol durumu | Şalter sonucu | Süre (sn) | Not |
-|---:|---|---|---|---:|---|
-| 1 | A: … | Ölçüm gerekli | Ölçüm gerekli | — | Farklı yürünebilir başlangıç |
-| 2 | B: … | Ölçüm gerekli | Ölçüm gerekli | — | Farklı yürünebilir başlangıç |
-| 3 | C: … | Ölçüm gerekli | Ölçüm gerekli | — | Farklı yürünebilir başlangıç |
-| 4 | D: … | Ölçüm gerekli | Ölçüm gerekli | — | Farklı yürünebilir başlangıç |
-| 5 | E: … | Ölçüm gerekli | Ölçüm gerekli | — | Farklı yürünebilir başlangıç |
-
-Başarı oranı ve ortalama süre, beş deneme gerçek Unity çalıştırmalarında tamamlandıktan sonra hesaplanmalıdır. Ölçümde başlangıç koordinatı, hedef koordinatı, NavMesh bake ayarı ve zaman ölçüm yöntemi sabit tutulmalıdır.
-
-Deneme tekrarı için Play modunu durdurun, `Robot` nesnesini NavMesh üzerindeki farklı bir başlangıç konumuna taşıyın ve Play modunu yeniden başlatın; böylece lazer bariyeri her denemede başlangıç durumuna döner. Şaltere gönderme komutunu verirken Console'daki tamamlanma kaydının `result`, `path` ve `seconds` alanlarını tabloya aktarın. `STARTED` kaydı ara bilgidir; sonuç için `SUCCESS`, `PATH_INVALID` veya `COMMAND_REJECTED` kaydını kullanın.
-
 ## Yerel LLM ve diyalog mimarisi
 
 Ollama, modelin yerel makinede çalışmasını sağlar; böylece oyun diyaloğu için harici bir bulut servisine ihtiyaç duyulmaz. `llama3.2` modeli hafif kurulumlarda denenebilir ve istekler ana Unity iş parçacığını uzun süre bloklamadan `UnityWebRequest` ve `Task.Yield` ile beklenebilir. Bu yaklaşım donanım kaynaklarına bağlıdır; 1B varyantının düşük VRAM ve kısa gecikme avantajı hedefleniyorsa kullanılan model etiketi kurulumda açıkça `llama3.2:1b` olarak seçilmelidir. Depodaki varsayılan `modelName` değeri şu an `llama3.2`’dir.
 
 ### İstek ve yanıt sözleşmesi
 
-`PetitionValidator`, [PetitionRules_Default.asset](Assets/_Project/Data/PetitionRules_Default.asset) içindeki ölçütlerle dilekçeyi kontrol eder: 40–500 karakter, resmî hitap, mazeret ve açık çıkış talebi. Giriş uzunluğu sınırlandırılır; sayaç ve eksik koşul mesajı yazarken gösterilir. Güvenilir ön kontrol sonucu ve açıklaması Ollama'ya bağlam olarak gönderilir. Kapı kararını Ollama yapılandırılmış `doorDecision` alanıyla verir; `unlock` eylemi ayrıca yerel doğrulamadan geçmelidir. Bu ikinci kontrol, modelin yanlış pozitif kararını engeller. Bozuk/eksik karar veya yerel kontrol başarısızlığı kapıyı açmaz. Kapı açılınca NPC yanıtının okunması için panel 2,5 saniye sonra kapanır ve oyuncu çıkışa ilerleyebilir.
+`PetitionValidator`, [PetitionRules_Default.asset](Assets/_Project/Data/PetitionRules_Default.asset) içindeki ölçütlerle dilekçeyi kontrol eder: 40–500 karakter, resmî hitap, mazeret ve açık çıkış talebi. Giriş uzunluğu sınırlandırılır; sayaç ve eksik koşul mesajı yazarken gösterilir. Güvenilir ön kontrol sonucu ve açıklaması Ollama'ya bağlam olarak gönderilir. Kapı kararını Ollama yapılandırılmış `doorDecision` alanıyla verir; `unlock` eylemi ayrıca yerel doğrulamadan geçmelidir. Bu ikinci kontrol, modelin yanlış pozitif kararını engeller. Bozuk/eksik karar veya yerel kontrol başarısızlığı kapıyı açmaz. Kütüphaneci yanıtları okunaklı bir yazı animasyonuyla sunulur; Enter/A önce yazıyı tamamlar, tekrar basıldığında gönderir; Esc/B ile kapatılabilir. İstek sırasında animasyonlu bekleme ve süre göstergesi çıkar; bağlantı hatasında dilekçe korunarak yeniden denenebilir. Ret ve kabul yanıtları farklı görsel/işitsel geri bildirim alır. Kapı açılırken sıcak tonlu çıkış ışığı yumuşakça yükselip kısa bir vurgu yapar; eşikten seyrek ışık parçacıkları süzülür. Diyalog paneli yanıt bittikten kısa süre sonra kapanır; oyun saati durur, oyuncu çıkışa yürür ve kapı eşiğini geçince kazanma ekranı açılır.
 
 `NPCResponseData` ve `OllamaManager`, diyalog metniyle birlikte kapı kararını taşıyan yapılandırılmış yanıtı işler:
 
@@ -162,19 +145,7 @@ sequenceDiagram
     end
 ```
 
-### Örnek diyalog senaryoları
-
-Tablo, istenen en az beş canlı LLM denemesi için çalıştırılabilir test planıdır. Beklenen kararlar test ölçümü değildir. Her mesajı ayrı ayrı gönderin; ekrandaki gerçek NPC yanıtını ve Console'daki `Ollama yapılandırılmış NPC kararı` satırını sonuç alanına kaydedin. Reddedilen testleri önce, kapıyı açan testi en son çalıştırın.
-
-| Senaryo | Oyuncu mesajı | Beklenen karar | Gerçek yanıt / karar |
-|---|---|---|---|
-| **Öfkeli / kuralları eksik** | “Ne biçim iş yapıyorsunuz, hemen çıkış izni verin!” | Kapı kilitli kalmalı; yerel kontrol eksik hitap, mazeret ve uzunluğu bildirir. | 2 denemede Ollama `unlock` üretti; yerel kontrol kapıyı kilitli tuttu. |
-| **Alakasız** | “Üç mor bulut kantinde satranç oynuyor.” | Kapı kilitli kalmalı; yerel kontrol dilekçe koşullarının eksik olduğunu göstermeli. | 2 denemede Ollama `unlock` üretti; yerel kontrol kapıyı kilitli tuttu. |
-| **Mazeretsiz** | “Sayın Kütüphane Müdürlüğüne, binadan çıkış izni talep ediyorum. İyi çalışmalar.” | `keep_locked` | 2 denemede Ollama `unlock` üretti; yerel kontrol kapıyı kilitli tuttu. |
-| **Açık talep yok** | “Sayın Kütüphane Müdürlüğüne, sağlık sorunum nedeniyle bu gece evime gitmem gerekiyor. Saygılarımla.” | `keep_locked` | 2 denemede Ollama `unlock` üretti; yerel kontrol kapıyı kilitli tuttu. |
-| **İkna edici** | “Sayın Kütüphane Müdürlüğüne, sağlık sorunum nedeniyle bu gece binadan çıkış izni arz ederim. Saygılarımla.” | `unlock` | Canlı testte `unlock` üretildi; kapı açıldı ve çıkış hedefi gösterildi. |
-
-## Hata yönetimi ve resiliency
+## Hata yönetimi
 
 LLM, oyun döngüsünün dış bağımlılığı olduğundan başarısızlığı temel oyun akışını çöktürmemelidir. `OllamaManager` şu güvenlik adımlarını uygular:
 
@@ -196,31 +167,33 @@ LLM, oyun döngüsünün dış bağımlılığı olduğundan başarısızlığı
 
 LLM servisi çalışmıyorsa oyun fallback yanıtıyla devam eder; doğal dil diyalog üretimi kullanılabilir olmaz.
 
-## Oyun içi ekran görüntüleri ve arayüz
+## Koridor güvenlik noktası görsel geçişi
 
-Görseller depoya eklendikten sonra aşağıdaki yollar ilgili dosyalara göre güncellenmelidir.
+Son kitaplık sıraları ahşap bitiş panelleriyle tamamlanır; enkaz alanından güvenlik noktasına koyu teal halı ve pirinç şeritlerle temiz bir geçiş yapılır. Güvenlik görevlisinin arkasındaki duvar açıklığında kahverengi çift kanatlı, pirinç kulplu “PERSONEL ÇIKIŞI” kapısı bulunur. Kapı dekoratiftir ve collider içermez; mevcut koridor geçiş tetikleyicisini engellemez. Bu dekorlar `LibraryVisualPass` tarafından oluşturulur. Yeniden üretmek için Unity menüsünden `Breakpoint > Art > Build Library Visuals (Corridor + Librarian)` komutunu çalıştırın; komut koridor ve kapı sahnelerinin görsel düzenlemelerini yeniler.
 
-| Görünüm | Görsel |
-|---|---|
-| Koridor ve lazer bariyerleri | ![Game Screen — Koridor](path/to/img/corridor.png) |
-| Robot ve şalter etkileşimi | ![Game Screen — Robot](path/to/img/robot-switch.png) |
-| Nöbetçi Kütüphaneci diyalog arayüzü | ![Game Screen — Diyalog](path/to/img/dialogue.png) |
-| Kapı ve oyun sonu | ![Game Screen — Çıkış](path/to/img/door-ending.png) |
+## Door sahnesi görsel atmosfer
 
-## Sonuç, sınırlılıklar ve gelecek çalışmalar
+Kütüphaneci bankosundaki mevcut lamba ve kitaplara ek olarak oyun başlarken düşük poligonlu dilekçe sayfaları, yazı çizgileri, mühür, kalem ve kayıt defteri oluşturulur; evrak alanı masa lambasıyla aydınlatılır. Çıkış kapısının collider konumuna göre büyük, sıcak ışıklı “ÇIKIŞ” tabelası yerleştirilir. Kapı çevresine ahşap eşik ve saçak eklenir; kapı açılınca oyuncunun bulunduğu noktadan eşiğe uzanan zemin okları belirir ve kapının ardında ay ışıklı şehir silueti görünür. Bu ayrıntılar dış model veya görsel dosyası gerektirmez; `DoorSceneDressing` bileşeniyle sahneye eklenir. Door sahnesinin genel aydınlatması daha sıcak ve daha dengeli bir seviyeye ayarlanır.
+
+## Sonuç ve geliştirme alanları
 
 Breakpoint; NavMesh ile otonom hareketi, Raycast algılamasını, FSM tabanlı robot davranışını, olay güdümlü oyun sistemlerini ve yerel LLM ile diyalog prototipini bir araya getirir. Yerel model kullanımı, oyuncu girdisinin harici bir servise gönderilmeden işlenebilmesine imkân verir. Güvenli fallback sayesinde LLM erişimi olmadığında temel hata akışı tanımlıdır.
 
-Mevcut sınırlılıklar arasında model yanıt süresinin donanıma göre değişmesi, modelin her zaman geçerli JSON üretmemesi, dilekçe doğrulamasının basit anahtar sözcük kurallarına dayanması ve ölçümlü beş başlangıç noktası test sonuçlarının henüz raporlanmamış olması yer alır. Dilekçe kuralları daha sonra anlamsal doğrulama ile genişletilebilir; 8 saniyelik Ollama zaman aşımı da Inspector’dan ayarlanabilir.
+Yerel modelin yanıt süresi donanıma bağlıdır ve model geçersiz JSON üretebilir; bu durumlarda oyun kapıyı kilitli tutan fallback yanıtını kullanır. Dilekçe doğrulaması resmî hitap, mazeret ve çıkış talebini anahtar sözcüklerle denetler.
 
-Gelecek çalışmalar:
+İleride geliştirilebilecek alanlar:
 
-- Ollama yanıt sıcaklığı ve token sınırı gibi üretim ayarlarını Inspector veya yapılandırma dosyasından yönetmek.
-- Beş farklı başlangıç noktasında tekrarlı yol bulma testleri yapıp başarı oranı ve süre istatistiklerini raporlamak.
+- İlk oynanışta hareket, robot komutu ve dilekçe yazımını anlatan kısa bir yönlendirme eklemek.
+- Oyuncunun bulduğu çevresel ipuçlarını dilekçede kullanabileceği isteğe bağlı bir hazırlık sistemi eklemek.
 - Robotun görüş alanı, alternatif rota ve dinamik engel durumları için FSM’yi genişletmek.
-- Unity ML-Agents ile davranış klonlama veya ödül tabanlı öğrenmeyi araştırmak; mevcut deterministik FSM’yi kıyaslama tabanı olarak korumak.
-- Diyalog kararlarını otomatik testlerle doğrulamak ve bağlantı, timeout, hatalı JSON senaryolarını CI sürecine eklemek.
 
 ## Lisans ve atıf
 
-Bu proje ders/prototip çalışmasıdır. Lisans ve üçüncü taraf varlık atıfları depoda tanımlandığında bu bölüm ilgili lisans metinleriyle tamamlanmalıdır.
+Bu proje ders/prototip çalışmasıdır. Door sahnesindeki oda ambiyansı ve saat sesi Pixabay Content License altında kullanılır. Pixabay bu içerikler için atıf zorunluluğu belirtmez; kaynak bilgisi izlenebilirlik için listelenmiştir.
+
+| Varlık | Katkıcı | Kaynak / lisans |
+|---|---|---|
+| The Ambience Room Tone (`DoorScene_RoomTone.mp3`) | SoundsForYou | [Pixabay](https://pixabay.com/sound-effects/household-the-ambience-room-tone-139064/) · Pixabay Content License |
+| Clock Ticking Ambience (`DoorScene_ClockTick.mp3`) | Alex_Jauk | [Pixabay](https://pixabay.com/sound-effects/film-special-effects-clock-ticking-ambience-202980/) · Pixabay Content License |
+
+Diğer üçüncü taraf varlıkların lisans ve atıfları dağıtımdan önce ayrıca incelenmelidir. Pixabay Content License, içeriklerin tek başına yeniden dağıtımına izin vermez; ilgili [lisans özeti](https://pixabay.com/service/license-summary/) incelenebilir.
