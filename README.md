@@ -29,8 +29,8 @@ Projenin amacı; Unity’de sahne ve oyun durumu yönetimini, NavMesh tabanlı o
 
 | Üye | Sorumluluk |
 |---|---|
-| **Sütlaç** | Fiziksel dünya ve robot ajanı: NavMesh, sensörler ve koridor bölümü |
-| **Tiramisu** | Diyalog sistemi, JSON yanıt akışı ve kapı bölümü |
+| **ElifH** | Fiziksel dünya ve robot ajanı: NavMesh, sensörler ve koridor bölümü |
+| **ElifG** | Diyalog sistemi, JSON yanıt akışı ve kapı bölümü |
 
 ## Mimari ve OOP tasarımı
 
